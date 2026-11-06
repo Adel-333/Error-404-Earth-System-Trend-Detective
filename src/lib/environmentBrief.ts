@@ -1,0 +1,1098 @@
+import {
+  CLIMATE_METRICS,
+  summarizeMonthlyClimate,
+  type ClimateCoverage,
+  type ClimateMetricId,
+  type MonthlyClimateObservation,
+  type MonthlyClimateSummary,
+} from "./climate";
+import { doiResolverUrl } from "./citation";
+import { NDVI_SOURCE, NDVI_UNIT } from "./phenology";
+import { GIBS_ACKNOWLEDGMENT } from "./providers";
+import {
+  compareYm,
+  type DatasetRef,
+  type LayerId,
+  type YearMonth,
+} from "./timeline";
+
+/**
+ * Provenance-first environmental condition briefs.
+ *
+ * This module composes independent monthly vegetation, rainfall,
+ * soil-moisture, and air-temperature observations. It preserves source,
+ * native unit, data month, coverage, and unavailable states for each signal.
+ * It deliberately does not combine signals into a score or make risk,
+ * diagnosis, forecast, compliance, health, or causal claims.
+ */
+
+export type EnvironmentSignalId =
+  "vegetation" | "rainfall" | "soil-moisture" | "air-temperature";
+
+export type EnvironmentSignalStatus =
+  "available" | "no-data" | "invalid" | "unavailable";
+
+export interface EnvironmentObservation {
+  /** Month represented by the supplied source observation. */
+  dataMonth: YearMonth;
+  /** Value in the signal's native unit; null means no usable source value. */
+  value: number | null;
+  /** Usable share of the sampled area, when spatial sampling provides it. */
+  validFraction?: number;
+  /** Bounded source/sampling state retained when no usable value was produced. */
+  unavailableReason?:
+    "source-no-data" | "insufficient-valid-coverage" | "sampling-failed";
+}
+
+export interface EnvironmentBriefInput {
+  vegetation: EnvironmentObservation | null;
+  rainfall: EnvironmentObservation | null;
+  soilMoisture: EnvironmentObservation | null;
+  airTemperature: EnvironmentObservation | null;
+  /** Availability checkpoint for lagged monthly climate products. */
+  availableThrough: YearMonth;
+  /**
+   * Optional product-specific availability checkpoints. Use this when cited
+   * products publish on different monthly schedules. Omitted climate entries
+   * retain the shared `availableThrough` fallback; an omitted vegetation entry
+   * leaves vegetation availability unchecked because the shared checkpoint is
+   * climate-scoped.
+   */
+  availableThroughBySignal?: Partial<Record<EnvironmentSignalId, YearMonth>>;
+  /** Provenance reason when a signal has no observation to compose. */
+  unavailableReasonBySignal?: Partial<
+    Record<EnvironmentSignalId, EnvironmentUnavailableReason>
+  >;
+}
+
+export type EnvironmentUnavailableReason =
+  | "not-supplied"
+  | "product-not-recorded"
+  | "no-observations-recorded"
+  | "rejected-wms-layer"
+  | "rejected-source"
+  | "rejected-native-unit"
+  | "rejected-generation-timestamp"
+  | "rejected-sampling-support"
+  | "rejected-observation-months"
+  | "rejected-observation-after-generation"
+  | "rejected-observation-coverage"
+  | "rejected-observation-state"
+  | "rejected-duplicate-products";
+
+export interface EnvironmentSignalCoverage {
+  status: EnvironmentSignalStatus;
+  /** Null means the sampler did not provide spatial coverage. */
+  validFraction: number | null;
+  reason: string | null;
+}
+
+export interface EnvironmentSignalBrief {
+  id: EnvironmentSignalId;
+  label: string;
+  layerId: LayerId;
+  source: DatasetRef;
+  nativeUnit: string;
+  dataMonth: YearMonth | null;
+  coverage: EnvironmentSignalCoverage;
+  status: EnvironmentSignalStatus;
+  observedValue: number | null;
+  statement: string;
+  climateSummary?: MonthlyClimateSummary;
+}
+
+/**
+ * Cross-signal temporal spread of the *usable* observations only.
+ *
+ * The four signals are independent products on different composite calendars
+ * and publication lags, so an "available" vegetation month can differ from an
+ * "available" air-temperature month. This summary makes that spread explicit
+ * so usable observations are never silently read as a synchronized snapshot.
+ * It is a provenance descriptor over data months — never a condition,
+ * comparison, trend, or change claim about the values themselves.
+ */
+export interface EnvironmentTemporalAlignment {
+  /** Available signals whose data months were compared, in signal order. */
+  comparedSignalIds: EnvironmentSignalId[];
+  /**
+   * Signals excluded from the month comparison, with the source month and
+   * reason preserved so the comparison can be reproduced without treating
+   * no-data, invalid, or unavailable observations as usable.
+   */
+  excludedSignals: EnvironmentTemporalExclusion[];
+  /** Oldest data month among available signals; null when none are usable. */
+  earliestMonth: YearMonth | null;
+  /** Newest data month among available signals; null when none are usable. */
+  latestMonth: YearMonth | null;
+  /**
+   * Whole-month distance between earliest and latest usable data month.
+   * 0 when a single month covers every usable signal; null when none usable.
+   */
+  spanMonths: number | null;
+  /** True only when 2+ usable signals share one data month. */
+  aligned: boolean;
+  /** Honest caveat sentence; carries no value comparison or condition claim. */
+  statement: string;
+}
+
+export interface EnvironmentTemporalExclusion {
+  id: EnvironmentSignalId;
+  status: Exclude<EnvironmentSignalStatus, "available">;
+  /** Source month when one was supplied; null for a not-supplied signal. */
+  dataMonth: YearMonth | null;
+  /** Source/validation reason carried by the signal coverage contract. */
+  reason: string | null;
+}
+
+/**
+ * Per-signal data currency: how many whole months a usable observation sits
+ * behind the availability checkpoint it was measured against.
+ */
+export interface EnvironmentSignalCurrency {
+  id: EnvironmentSignalId;
+  /** Usable data month of this signal. */
+  dataMonth: YearMonth;
+  /** Availability checkpoint this signal's currency was measured against. */
+  availableThrough: YearMonth;
+  /**
+   * Whole months the data month sits behind its availability checkpoint. 0
+   * means the newest publishable month; a positive value is the compositing/
+   * publication lag. Floored at 0: a data month at or ahead of the checkpoint
+   * is fully current, and — since vegetation carries no upstream publication
+   * gate — the floor keeps a stray future composite from reading as negative.
+   */
+  lagMonths: number;
+}
+
+/**
+ * Brief-scoped data-currency descriptor: how stale the *usable* observations
+ * are relative to the availability frontier they were checked against. This is
+ * distinct from `EnvironmentTemporalAlignment`, which measures the spread of
+ * the signals against each other; currency measures their distance behind
+ * "now". Only signals carrying an observed value contribute — no-data,
+ * invalid, and unpublished signals have no lag to report. It is a data-recency
+ * descriptor over publication lag, never a condition, comparison, trend, or
+ * change claim about the values themselves.
+ */
+export interface EnvironmentDataCurrency {
+  /** Usable signals whose currency was assessed, in signal order. */
+  comparedSignalIds: EnvironmentSignalId[];
+  /**
+   * Usable signals omitted because no product-specific availability checkpoint
+   * was supplied. Currently this can only contain vegetation: the shared
+   * checkpoint is explicitly climate-scoped.
+   */
+  unassessedSignalIds: EnvironmentSignalId[];
+  /** Per-signal lag detail, in signal order. */
+  perSignal: EnvironmentSignalCurrency[];
+  /** Smallest lag among usable signals (freshest); null when none usable. */
+  freshestLagMonths: number | null;
+  /** Largest lag among usable signals (stalest); null when none usable. */
+  stalestLagMonths: number | null;
+  /** Id of the freshest usable signal (first on ties); null when none usable. */
+  freshestSignalId: EnvironmentSignalId | null;
+  /** Id of the stalest usable signal (first on ties); null when none usable. */
+  stalestSignalId: EnvironmentSignalId | null;
+  /** Honest one-line currency statement; carries no condition claim. */
+  statement: string;
+}
+
+export interface EnvironmentBriefCompleteness {
+  /** Number of signals the brief attempted to compose. */
+  total: number;
+  /** Signals carrying a usable observed value (status "available"). */
+  available: number;
+  /** Count of signals in each status, so no state is silently dropped. */
+  byStatus: Record<EnvironmentSignalStatus, number>;
+  /** Ids of the signals with usable observations, in signal order. */
+  availableSignalIds: EnvironmentSignalId[];
+  /** available / total in [0, 1]; a data-coverage share, not a condition score. */
+  usableFraction: number;
+  /** Honest one-line data-completeness statement (no condition inference). */
+  statement: string;
+}
+
+export interface EnvironmentCoverageContext {
+  /** Available signals whose samplers supplied a valid-fraction value. */
+  suppliedSignalIds: EnvironmentSignalId[];
+  /** Available signals without sampler-reported spatial coverage. */
+  unsuppliedSignalIds: EnvironmentSignalId[];
+  /** Smallest supplied valid fraction; null when no available signal supplies it. */
+  minimumValidFraction: number | null;
+  /** Largest supplied valid fraction; null when no available signal supplies it. */
+  maximumValidFraction: number | null;
+  /** Provenance caveat: independent fractions do not establish shared footprint. */
+  statement: string;
+}
+
+export interface EnvironmentBrief {
+  kind: "provenance-first-environment-brief";
+  signals: EnvironmentSignalBrief[];
+  statements: string[];
+  completeness: EnvironmentBriefCompleteness;
+  unsupportedLanguageHits: string[];
+  methodLimits: string[];
+  temporalAlignment: EnvironmentTemporalAlignment;
+  coverageContext: EnvironmentCoverageContext;
+  dataCurrency: EnvironmentDataCurrency;
+}
+
+interface SignalMeta {
+  id: EnvironmentSignalId;
+  label: string;
+  layerId: LayerId;
+  source: DatasetRef;
+  nativeUnit: string;
+}
+
+const VEGETATION_META: SignalMeta = {
+  id: "vegetation",
+  label: "Vegetation (NDVI)",
+  layerId: "ndvi",
+  source: NDVI_SOURCE,
+  nativeUnit: NDVI_UNIT,
+};
+
+const CLIMATE_SIGNAL_META: Record<
+  Exclude<EnvironmentSignalId, "vegetation">,
+  SignalMeta & { metricId: ClimateMetricId }
+> = {
+  // The signal id stays "rainfall" — it is a structural key shared with the
+  // place panel and a dozen descriptor modules — but the *rendered label* must
+  // name the quantity GIBS actually serves. The layer behind this signal is
+  // GLDAS_Surface_Total_Precipitation_Rate_Monthly, whose authoritative
+  // ows:Title is "Total Precipitation Rate (Monthly, Surface, Noah LSM,
+  // GLDAS)": the model's total precipitation flux, which includes snowfall.
+  // Calling it "rainfall" asserted a liquid-only quantity the product does not
+  // render, and it did so exactly where the difference matters — cold seasons
+  // and cold regions. `briefPrecipitationPhase.ts` carries the consequence:
+  // the brief cannot resolve which phase the total fell as.
+  rainfall: {
+    id: "rainfall",
+    label: "Precipitation (total rate, all phases)",
+    layerId: "precip",
+    source: CLIMATE_METRICS["precipitation-rate"].source,
+    nativeUnit: CLIMATE_METRICS["precipitation-rate"].nativeUnit,
+    metricId: "precipitation-rate",
+  },
+  "soil-moisture": {
+    id: "soil-moisture",
+    label: "Soil moisture",
+    layerId: "soil",
+    source: CLIMATE_METRICS["soil-moisture"].source,
+    nativeUnit: CLIMATE_METRICS["soil-moisture"].nativeUnit,
+    metricId: "soil-moisture",
+  },
+  "air-temperature": {
+    id: "air-temperature",
+    label: "Air temperature",
+    layerId: "airtemp",
+    source: CLIMATE_METRICS["air-temperature-2m"].source,
+    nativeUnit: CLIMATE_METRICS["air-temperature-2m"].nativeUnit,
+    metricId: "air-temperature-2m",
+  },
+};
+
+const METHOD_LIMITS = [
+  "Signals are independent monthly source observations and are not combined.",
+  "Values remain in native source units with supplied spatial coverage only.",
+  "Missing coverage, no-data, invalid, and unpublished states remain explicit.",
+];
+
+const UNSUPPORTED_CLAIM_PATTERNS: readonly {
+  label: string;
+  pattern: RegExp;
+}[] = [
+  { label: "risk", pattern: /\brisk(s)?\b/i },
+  { label: "hazard", pattern: /\bhazard(s|ous)?\b/i },
+  { label: "diagnosis", pattern: /\bdiagnos(e|es|ed|is|tic)\b/i },
+  { label: "forecast", pattern: /\bforecast(s|ed|ing)?\b/i },
+  { label: "prediction", pattern: /\bpredict(s|ed|ion|ive)?\b/i },
+  { label: "compliance", pattern: /\bcompliance\b/i },
+  { label: "health", pattern: /\bhealth(y)?\b/i },
+  { label: "causal", pattern: /\b(cause|causes|caused|causal|because)\b/i },
+  { label: "attribution", pattern: /\bdue to\b/i },
+  { label: "safety", pattern: /\b(safe|unsafe|danger)\b/i },
+];
+
+export function composeEnvironmentBrief(
+  input: EnvironmentBriefInput
+): EnvironmentBrief {
+  const snapshot = snapshotBriefInput(input);
+  const signals = [
+    vegetationSignal(
+      snapshot.vegetation,
+      snapshot.availableThroughBySignal?.vegetation,
+      unavailableReasonFor(snapshot, "vegetation")
+    ),
+    climateSignal(
+      CLIMATE_SIGNAL_META.rainfall,
+      snapshot.rainfall,
+      availableThroughFor(snapshot, "rainfall"),
+      unavailableReasonFor(snapshot, "rainfall")
+    ),
+    climateSignal(
+      CLIMATE_SIGNAL_META["soil-moisture"],
+      snapshot.soilMoisture,
+      availableThroughFor(snapshot, "soil-moisture"),
+      unavailableReasonFor(snapshot, "soil-moisture")
+    ),
+    climateSignal(
+      CLIMATE_SIGNAL_META["air-temperature"],
+      snapshot.airTemperature,
+      availableThroughFor(snapshot, "air-temperature"),
+      unavailableReasonFor(snapshot, "air-temperature")
+    ),
+  ];
+  const statements = signals.map((signal) => signal.statement);
+
+  return {
+    kind: "provenance-first-environment-brief",
+    signals,
+    statements,
+    completeness: summarizeCompleteness(signals),
+    unsupportedLanguageHits: unsupportedBriefLanguageHits(statements.join(" ")),
+    methodLimits: METHOD_LIMITS,
+    temporalAlignment: summarizeTemporalAlignment(signals),
+    coverageContext: summarizeCoverageContext(signals),
+    dataCurrency: summarizeDataCurrency(
+      signals,
+      snapshot.availableThrough,
+      snapshot.availableThroughBySignal
+    ),
+  };
+}
+
+/**
+ * Detach the brief's temporal provenance from mutable sampler state. Callers
+ * commonly reuse observation objects while stepping through months; retaining
+ * those references would let an already-composed brief change after its
+ * statements were written, making the structured month disagree with the
+ * narrative. Values and coverage are primitives, so only month records need
+ * copying.
+ */
+function snapshotBriefInput(
+  input: EnvironmentBriefInput
+): EnvironmentBriefInput {
+  const snapshotObservation = (
+    observation: EnvironmentObservation | null
+  ): EnvironmentObservation | null =>
+    observation
+      ? { ...observation, dataMonth: { ...observation.dataMonth } }
+      : null;
+  const availableThroughBySignal = input.availableThroughBySignal
+    ? Object.fromEntries(
+        Object.entries(input.availableThroughBySignal).map(([id, month]) => [
+          id,
+          { ...month },
+        ])
+      )
+    : undefined;
+
+  return {
+    vegetation: snapshotObservation(input.vegetation),
+    rainfall: snapshotObservation(input.rainfall),
+    soilMoisture: snapshotObservation(input.soilMoisture),
+    airTemperature: snapshotObservation(input.airTemperature),
+    availableThrough: { ...input.availableThrough },
+    availableThroughBySignal,
+    unavailableReasonBySignal: input.unavailableReasonBySignal
+      ? { ...input.unavailableReasonBySignal }
+      : undefined,
+  };
+}
+
+/**
+ * Summarize sampler-reported coverage without treating independent source
+ * footprints as spatially overlapping. Only usable observations participate;
+ * unavailable and invalid records retain their own per-signal coverage state.
+ */
+export function summarizeCoverageContext(
+  signals: readonly EnvironmentSignalBrief[]
+): EnvironmentCoverageContext {
+  const available = signals.filter((signal) => signal.status === "available");
+  const supplied = available.filter(
+    (signal) => signal.coverage.validFraction !== null
+  );
+  const suppliedSignalIds = supplied.map((signal) => signal.id);
+  const unsuppliedSignalIds = available
+    .filter((signal) => signal.coverage.validFraction === null)
+    .map((signal) => signal.id);
+  const fractions = supplied.map((signal) => signal.coverage.validFraction!);
+  const minimumValidFraction = fractions.length ? Math.min(...fractions) : null;
+  const maximumValidFraction = fractions.length ? Math.max(...fractions) : null;
+
+  return {
+    suppliedSignalIds,
+    unsuppliedSignalIds,
+    minimumValidFraction,
+    maximumValidFraction,
+    statement: coverageContextStatement(
+      available.length,
+      suppliedSignalIds,
+      unsuppliedSignalIds,
+      minimumValidFraction,
+      maximumValidFraction
+    ),
+  };
+}
+
+function coverageContextStatement(
+  availableCount: number,
+  suppliedIds: EnvironmentSignalId[],
+  unsuppliedIds: EnvironmentSignalId[],
+  minimum: number | null,
+  maximum: number | null
+): string {
+  if (availableCount === 0)
+    return "No usable observations with spatial coverage to summarize.";
+  if (suppliedIds.length === 0) {
+    return `Spatial coverage was not supplied for the usable signals: ${unsuppliedIds.join(", ")}.`;
+  }
+  const range =
+    minimum === maximum
+      ? `${formatPercent(minimum!)} sampled coverage`
+      : `${formatPercent(minimum!)} to ${formatPercent(maximum!)} sampled coverage`;
+  const missing = unsuppliedIds.length
+    ? ` Coverage was not supplied for: ${unsuppliedIds.join(", ")}.`
+    : "";
+  return `${suppliedIds.length} usable signal${plural(suppliedIds.length)} reported ${range}.${missing} Fractions describe independent source samples and do not establish a shared spatial footprint.`;
+}
+
+function formatPercent(fraction: number): string {
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
+/**
+ * Report the temporal spread of the usable (`available`) observations so a
+ * multi-month set is never read as one synchronized moment. Only signals that
+ * carry an observed value are compared — no-data, invalid, and unpublished
+ * signals contribute no month to align. This is a data-currency descriptor,
+ * not a claim that the values themselves rose, fell, or agree.
+ */
+export function summarizeTemporalAlignment(
+  signals: EnvironmentSignalBrief[]
+): EnvironmentTemporalAlignment {
+  const usable = signals.filter(
+    (signal): signal is EnvironmentSignalBrief & { dataMonth: YearMonth } =>
+      signal.status === "available" && signal.dataMonth !== null
+  );
+  const excludedSignals = signals
+    .filter(
+      (
+        signal
+      ): signal is EnvironmentSignalBrief & {
+        status: Exclude<EnvironmentSignalStatus, "available">;
+      } => signal.status !== "available"
+    )
+    .map(({ id, status, dataMonth, coverage }) => ({
+      id,
+      status,
+      dataMonth,
+      reason: coverage.reason,
+    }));
+
+  if (usable.length === 0) {
+    return {
+      comparedSignalIds: [],
+      excludedSignals,
+      earliestMonth: null,
+      latestMonth: null,
+      spanMonths: null,
+      aligned: false,
+      statement: "No usable observations to compare across time.",
+    };
+  }
+
+  let earliest = usable[0].dataMonth;
+  let latest = usable[0].dataMonth;
+  for (const signal of usable) {
+    if (compareYm(signal.dataMonth, earliest) < 0) earliest = signal.dataMonth;
+    if (compareYm(signal.dataMonth, latest) > 0) latest = signal.dataMonth;
+  }
+  const spanMonths = compareYm(latest, earliest);
+  const comparedSignalIds = usable.map((signal) => signal.id);
+
+  return {
+    comparedSignalIds,
+    excludedSignals,
+    earliestMonth: earliest,
+    latestMonth: latest,
+    spanMonths,
+    // A lone usable signal has nothing to align with, so alignment requires
+    // 2+ usable signals resolving to one shared data month.
+    aligned: usable.length >= 2 && spanMonths === 0,
+    statement: temporalAlignmentStatement(
+      comparedSignalIds.length,
+      earliest,
+      latest,
+      spanMonths
+    ),
+  };
+}
+
+function temporalAlignmentStatement(
+  count: number,
+  earliest: YearMonth,
+  latest: YearMonth,
+  spanMonths: number
+): string {
+  const noun = count === 1 ? "observation" : "observations";
+  if (count === 1) {
+    return `1 usable ${noun}, dated ${formatYearMonth(
+      earliest
+    )}; no cross-signal temporal comparison.`;
+  }
+  if (spanMonths === 0) {
+    return `${count} usable ${noun} all dated ${formatYearMonth(
+      earliest
+    )}; temporally aligned.`;
+  }
+  const monthWord = spanMonths === 1 ? "month" : "months";
+  return `${count} usable ${noun} span ${formatYearMonth(
+    earliest
+  )} to ${formatYearMonth(
+    latest
+  )} (${spanMonths}-${monthWord} spread); signals are not a synchronized snapshot and should not be read as simultaneous.`;
+}
+
+/**
+ * Report how stale the usable (`available`) observations are relative to the
+ * availability checkpoint each was measured against, so a lagged source month
+ * is never silently read as current. Climate signals use their product-specific
+ * checkpoint when supplied and otherwise use the shared climate checkpoint.
+ * Vegetation contributes only when it has a product-specific checkpoint; using
+ * a climate frontier for MODIS vegetation would invent cross-product currency.
+ * Non-usable signals contribute no lag. This is a data-recency descriptor over
+ * publication lag, not a claim that the values themselves rose, fell, or agree.
+ */
+export function summarizeDataCurrency(
+  signals: readonly EnvironmentSignalBrief[],
+  availableThrough: YearMonth,
+  availableThroughBySignal?: EnvironmentBriefInput["availableThroughBySignal"]
+): EnvironmentDataCurrency {
+  const perSignal: EnvironmentSignalCurrency[] = [];
+  const unassessedSignalIds: EnvironmentSignalId[] = [];
+  for (const signal of signals) {
+    if (signal.status !== "available" || signal.dataMonth === null) continue;
+    if (
+      signal.id === "vegetation" &&
+      availableThroughBySignal?.vegetation === undefined
+    ) {
+      unassessedSignalIds.push(signal.id);
+      continue;
+    }
+    const checkpoint =
+      availableThroughBySignal?.[signal.id] ?? availableThrough;
+    // Whole months behind the availability frontier, floored at 0: a data
+    // month at or ahead of the checkpoint is fully current, not "ahead".
+    const lagMonths = Math.max(0, compareYm(checkpoint, signal.dataMonth));
+    perSignal.push({
+      id: signal.id,
+      dataMonth: signal.dataMonth,
+      availableThrough: checkpoint,
+      lagMonths,
+    });
+  }
+
+  if (perSignal.length === 0) {
+    return {
+      comparedSignalIds: [],
+      unassessedSignalIds,
+      perSignal: [],
+      freshestLagMonths: null,
+      stalestLagMonths: null,
+      freshestSignalId: null,
+      stalestSignalId: null,
+      statement:
+        unassessedSignalIds.length === 0
+          ? "No usable observations to assess for data currency."
+          : unassessedCurrencyStatement(unassessedSignalIds),
+    };
+  }
+
+  let freshest = perSignal[0];
+  let stalest = perSignal[0];
+  for (const entry of perSignal) {
+    // Strict comparisons keep the first signal (in signal order) on a tie.
+    if (entry.lagMonths < freshest.lagMonths) freshest = entry;
+    if (entry.lagMonths > stalest.lagMonths) stalest = entry;
+  }
+
+  return {
+    comparedSignalIds: perSignal.map((entry) => entry.id),
+    unassessedSignalIds,
+    perSignal,
+    freshestLagMonths: freshest.lagMonths,
+    stalestLagMonths: stalest.lagMonths,
+    freshestSignalId: freshest.id,
+    stalestSignalId: stalest.id,
+    statement: `${dataCurrencyStatement(perSignal, freshest, stalest)}${unassessedSignalIds.length ? ` ${unassessedCurrencyStatement(unassessedSignalIds)}` : ""}`,
+  };
+}
+
+function unassessedCurrencyStatement(
+  signalIds: readonly EnvironmentSignalId[]
+): string {
+  // The reason is joined with a colon rather than a causal connective: this is
+  // brief prose, and `UNSUPPORTED_CLAIM_PATTERNS` screens causal vocabulary out
+  // of brief copy so no sentence can read as an inferred cause.
+  return `Currency was not assessed for ${signalIds.join(", ")}: no product-specific availability checkpoint was supplied.`;
+}
+
+function dataCurrencyStatement(
+  perSignal: readonly EnvironmentSignalCurrency[],
+  freshest: EnvironmentSignalCurrency,
+  stalest: EnvironmentSignalCurrency
+): string {
+  const count = perSignal.length;
+  const noun = count === 1 ? "observation" : "observations";
+  if (count === 1) {
+    const only = perSignal[0];
+    return `1 usable ${noun} (${only.id}, dated ${formatYearMonth(only.dataMonth)}) lags its availability checkpoint by ${lagPhrase(only.lagMonths)}.`;
+  }
+  if (freshest.lagMonths === stalest.lagMonths) {
+    return `${count} usable ${noun} each lag their availability checkpoint by ${lagPhrase(freshest.lagMonths)}.`;
+  }
+  return `${count} usable ${noun} lag their availability checkpoints by ${freshest.lagMonths} to ${stalest.lagMonths} months (freshest ${freshest.id}, stalest ${stalest.id}); currency varies across signals.`;
+}
+
+function lagPhrase(lag: number): string {
+  return `${lag} ${lag === 1 ? "month" : "months"}`;
+}
+
+/** One credited source dataset, with the brief signals it backed. */
+export interface SourceAttribution {
+  /** The distinct source dataset version (deduplicated by DOI + version). */
+  source: DatasetRef;
+  /** Ids of the signals this source backed, in signal order. */
+  signalIds: EnvironmentSignalId[];
+  /** Human labels for the backed signals, in signal order. */
+  signalLabels: string[];
+  /**
+   * True when at least one backed signal carried a usable observation. A
+   * source can still be credited with this false — the brief consulted it and
+   * honestly reported its no-data / invalid / unpublished state.
+   */
+  contributedValue: boolean;
+  /** Resolvable DOI link, or null when the source carries no DOI to resolve. */
+  doiUrl: string | null;
+}
+
+/**
+ * Brief-scoped source credit: exactly the datasets that fed one environment
+ * brief, deduplicated by DOI + version, plus GIBS's requested acknowledgment and a
+ * ready-to-paste one-line credit for a figure caption or observation export.
+ */
+export interface BriefAttribution {
+  /** Distinct credited source versions, in first-seen order. */
+  sources: SourceAttribution[];
+  /** GIBS's requested acknowledgment, verbatim. */
+  acknowledgment: string;
+  /** Human-readable one-line source credit for a caption or export. */
+  line: string;
+}
+
+/**
+ * Credit exactly the sources a brief drew on. Rainfall and soil moisture are
+ * both GLDAS (one DOI and version), so a naive per-signal credit would list
+ * that product version twice and over-count it; this deduplicates by DOI plus
+ * version and records every signal each source backed. It credits every
+ * consulted source — including ones that
+ * only returned a no-data or unpublished state — so the credit never implies a
+ * usable value where there was none (see `contributedValue`). This is a
+ * provenance descriptor, not a value, comparison, or condition claim.
+ *
+ * DOI identity is compared case- and whitespace-insensitively (the handle
+ * system resolves ASCII DOIs case-insensitively), matching the DOI convention
+ * in `sourceIndependence.ts`. Version remains part of the identity so citations
+ * to different releases under one DOI cannot silently inherit the first-seen
+ * version label. A source that carries no resolvable DOI is keyed by its own
+ * product identity (short name + version) instead, so two distinct DOI-less
+ * products stay separate credits rather than collapsing into one. The
+ * displayed resolver link preserves the DOI's original casing, since a DOI
+ * suffix can be case-sensitive.
+ */
+export function attributeBrief(
+  signals: readonly EnvironmentSignalBrief[]
+): BriefAttribution {
+  const bySource = new Map<string, SourceAttribution>();
+  const order: string[] = [];
+  for (const signal of signals) {
+    const key = sourceDedupKey(signal.source);
+    let entry = bySource.get(key);
+    if (!entry) {
+      const doi = normalizedDoiText(signal.source.doi);
+      entry = {
+        source: { ...signal.source },
+        signalIds: [],
+        signalLabels: [],
+        contributedValue: false,
+        doiUrl: doi ? doiResolverUrl(doi) : null,
+      };
+      bySource.set(key, entry);
+      order.push(key);
+    }
+    entry.signalIds.push(signal.id);
+    entry.signalLabels.push(signal.label);
+    if (signal.status === "available") entry.contributedValue = true;
+  }
+
+  const sources = order.map((key) => bySource.get(key)!);
+  return {
+    sources,
+    acknowledgment: GIBS_ACKNOWLEDGMENT,
+    line: attributionLine(sources),
+  };
+}
+
+/** Canonical DOI text (original suffix casing preserved), or "" when absent. */
+function normalizedDoiText(doi: DatasetRef["doi"]): string {
+  return typeof doi === "string"
+    ? doi
+        .trim()
+        .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
+        .replace(/^doi:\s*/i, "")
+        .trim()
+    : "";
+}
+
+/**
+ * Stable dedup key identifying the product version behind a source. Two
+ * references to one DOI and version must credit it once, so a present DOI is
+ * compared case-insensitively (whitespace stripped) while the native version
+ * remains explicit. Without a resolvable DOI we cannot assert two references
+ * are the same product, so DOI-less sources fall back to their own short-name
+ * and version identity rather than all collapsing under one empty key.
+ */
+function sourceDedupKey(source: DatasetRef): string {
+  const doi = normalizedDoiText(source.doi).toLowerCase();
+  if (doi) return `doi:${doi}\0${source.version}`;
+  return `nodoi:${source.shortName}\0${source.version}`;
+}
+
+function attributionLine(sources: readonly SourceAttribution[]): string {
+  if (sources.length === 0) return "No data sources to credit.";
+  const credits = sources
+    .map((entry) => {
+      const link = entry.doiUrl ? ` (${entry.doiUrl})` : "";
+      return `${sourceLabel(entry.source)} — ${entry.signalLabels.join(
+        ", "
+      )}${link}`;
+    })
+    .join("; ");
+  return `Data sources: ${credits}. ${GIBS_ACKNOWLEDGMENT}`;
+}
+
+/** Fixed status order for reporting, so no state is silently dropped. */
+const SIGNAL_STATUSES: readonly EnvironmentSignalStatus[] = [
+  "available",
+  "no-data",
+  "invalid",
+  "unavailable",
+];
+
+/**
+ * Honest data-completeness tally across the composed signals. This counts how
+ * many signals carry a usable observation; it deliberately does not combine the
+ * values, weight the signals, or infer any condition, risk, or forecast.
+ */
+export function summarizeCompleteness(
+  signals: readonly EnvironmentSignalBrief[]
+): EnvironmentBriefCompleteness {
+  const byStatus = Object.fromEntries(
+    SIGNAL_STATUSES.map((status) => [status, 0])
+  ) as Record<EnvironmentSignalStatus, number>;
+  const availableSignalIds: EnvironmentSignalId[] = [];
+  for (const signal of signals) {
+    byStatus[signal.status] += 1;
+    if (signal.status === "available") availableSignalIds.push(signal.id);
+  }
+
+  const total = signals.length;
+  const available = byStatus.available;
+  const usableFraction = total === 0 ? 0 : available / total;
+
+  return {
+    total,
+    available,
+    byStatus,
+    availableSignalIds,
+    usableFraction,
+    statement: completenessStatement({
+      total,
+      available,
+      byStatus,
+      availableSignalIds,
+    }),
+  };
+}
+
+function completenessStatement(summary: {
+  total: number;
+  available: number;
+  byStatus: Record<EnvironmentSignalStatus, number>;
+  availableSignalIds: EnvironmentSignalId[];
+}): string {
+  const others = SIGNAL_STATUSES.filter((status) => status !== "available")
+    .filter((status) => summary.byStatus[status] > 0)
+    .map((status) => `${summary.byStatus[status]} ${status}`)
+    .join(", ");
+  const remainder = others ? ` (${others})` : "";
+
+  if (summary.total === 0) return "No signals composed.";
+  if (summary.available === 0) {
+    return `No usable observations across ${summary.total} signal${plural(
+      summary.total
+    )}${remainder}.`;
+  }
+  return `Usable observations for ${summary.available} of ${
+    summary.total
+  } signal${plural(summary.total)}: ${summary.availableSignalIds.join(
+    ", "
+  )}${remainder}.`;
+}
+
+function plural(count: number): string {
+  return count === 1 ? "" : "s";
+}
+
+function availableThroughFor(
+  input: EnvironmentBriefInput,
+  signal: Exclude<EnvironmentSignalId, "vegetation">
+): YearMonth {
+  return input.availableThroughBySignal?.[signal] ?? input.availableThrough;
+}
+
+function unavailableReasonFor(
+  input: EnvironmentBriefInput,
+  signal: EnvironmentSignalId
+): EnvironmentUnavailableReason {
+  return input.unavailableReasonBySignal?.[signal] ?? "not-supplied";
+}
+
+export function unsupportedBriefLanguageHits(text: string): string[] {
+  return UNSUPPORTED_CLAIM_PATTERNS.filter(({ pattern }) =>
+    pattern.test(text)
+  ).map(({ label }) => label);
+}
+
+function vegetationSignal(
+  observation: EnvironmentObservation | null,
+  availableThrough: YearMonth | undefined,
+  unavailableReason: EnvironmentUnavailableReason
+): EnvironmentSignalBrief {
+  if (!observation)
+    return unavailableSignal(VEGETATION_META, unavailableReason);
+
+  const observedCoverage = vegetationCoverage(observation);
+  const publicationUnavailable =
+    observedCoverage.status !== "invalid" &&
+    availableThrough !== undefined &&
+    compareYm(observation.dataMonth, availableThrough) > 0;
+  const coverage = publicationUnavailable
+    ? {
+        ...observedCoverage,
+        status: "unavailable" as const,
+        reason: "not-yet-published",
+      }
+    : observedCoverage;
+  const status = coverage.status;
+  const observedValue = status === "available" ? observation.value : null;
+
+  return {
+    ...VEGETATION_META,
+    source: { ...VEGETATION_META.source },
+    dataMonth: observation.dataMonth,
+    coverage,
+    status,
+    observedValue,
+    statement: statementFor({
+      ...VEGETATION_META,
+      dataMonth: observation.dataMonth,
+      coverage,
+      status,
+      observedValue,
+    }),
+  };
+}
+
+function climateSignal(
+  meta: SignalMeta & { metricId: ClimateMetricId },
+  observation: EnvironmentObservation | null,
+  availableThrough: YearMonth,
+  unavailableReason: EnvironmentUnavailableReason
+): EnvironmentSignalBrief {
+  if (!observation) return unavailableSignal(meta, unavailableReason);
+
+  const climateSummary = summarizeMonthlyClimate(
+    {
+      metricId: meta.metricId,
+      dataMonth: observation.dataMonth,
+      value: observation.value,
+      validFraction: observation.validFraction,
+    } satisfies MonthlyClimateObservation,
+    availableThrough
+  );
+  const publicationUnavailable =
+    climateSummary.publicationStatus !== "published";
+  const coverage = signalCoverageFromClimate(climateSummary.coverage);
+  if (
+    observation.value === null &&
+    observation.unavailableReason &&
+    coverage.status === "no-data"
+  ) {
+    coverage.reason = observation.unavailableReason;
+  }
+  const status = publicationUnavailable ? "unavailable" : coverage.status;
+  const observedValue =
+    status === "available" ? climateSummary.observedValue : null;
+  const reason = publicationUnavailable
+    ? climateSummary.publicationStatus
+    : coverage.reason;
+  const signalCoverage = { ...coverage, status, reason };
+
+  return {
+    id: meta.id,
+    label: meta.label,
+    layerId: meta.layerId,
+    source: { ...meta.source },
+    nativeUnit: meta.nativeUnit,
+    dataMonth: climateSummary.dataMonth,
+    coverage: signalCoverage,
+    status,
+    observedValue,
+    statement: statementFor({
+      ...meta,
+      dataMonth: climateSummary.dataMonth,
+      coverage: signalCoverage,
+      status,
+      observedValue,
+    }),
+    climateSummary,
+  };
+}
+
+function unavailableSignal(
+  meta: SignalMeta,
+  reason: EnvironmentUnavailableReason
+): EnvironmentSignalBrief {
+  const coverage: EnvironmentSignalCoverage = {
+    status: "unavailable",
+    validFraction: null,
+    reason,
+  };
+  return {
+    ...meta,
+    source: { ...meta.source },
+    dataMonth: null,
+    coverage,
+    status: "unavailable",
+    observedValue: null,
+    statement: `${meta.label}: unavailable observation (${reason}); data month unavailable; coverage not supplied; source ${sourceLabel(meta.source)}.`,
+  };
+}
+
+function vegetationCoverage(
+  observation: EnvironmentObservation
+): EnvironmentSignalCoverage {
+  if (!isYearMonth(observation.dataMonth)) {
+    return { status: "invalid", validFraction: null, reason: "invalid-month" };
+  }
+  const fraction = observation.validFraction;
+  if (
+    fraction !== undefined &&
+    (!Number.isFinite(fraction) || fraction < 0 || fraction > 1)
+  ) {
+    return {
+      status: "invalid",
+      validFraction: null,
+      reason: "invalid-coverage",
+    };
+  }
+  if (observation.value === null || fraction === 0) {
+    return {
+      status: "no-data",
+      validFraction: fraction ?? null,
+      reason:
+        observation.value === null
+          ? (observation.unavailableReason ?? "missing-value")
+          : "zero-coverage",
+    };
+  }
+  if (
+    !Number.isFinite(observation.value) ||
+    observation.value < -1 ||
+    observation.value > 1
+  ) {
+    return {
+      status: "invalid",
+      validFraction: fraction ?? null,
+      reason: "invalid-value",
+    };
+  }
+  return { status: "available", validFraction: fraction ?? null, reason: null };
+}
+
+function signalCoverageFromClimate(
+  coverage: ClimateCoverage
+): EnvironmentSignalCoverage {
+  return {
+    status: coverage.status === "available" ? "available" : coverage.status,
+    validFraction: coverage.validFraction,
+    reason: coverage.reason,
+  };
+}
+
+function statementFor(signal: {
+  label: string;
+  nativeUnit: string;
+  source: DatasetRef;
+  dataMonth: YearMonth | null;
+  coverage: EnvironmentSignalCoverage;
+  status: EnvironmentSignalStatus;
+  observedValue: number | null;
+}): string {
+  const month = signal.dataMonth
+    ? formatYearMonth(signal.dataMonth)
+    : "data month unavailable";
+  const coverage = coverageText(signal.coverage);
+  const source = sourceLabel(signal.source);
+
+  if (signal.status === "available") {
+    return `${signal.label}: ${formatValue(signal.observedValue)} ${
+      signal.nativeUnit
+    } observed for ${month}; ${coverage}; source ${source}.`;
+  }
+  return `${signal.label}: ${signal.status} observation for ${month} (${
+    signal.coverage.reason ?? "unspecified"
+  }); ${coverage}; source ${source}.`;
+}
+
+function coverageText(coverage: EnvironmentSignalCoverage): string {
+  if (coverage.validFraction === null) return "coverage not supplied";
+  return `${Math.round(coverage.validFraction * 100)}% sampled coverage`;
+}
+
+function sourceLabel(source: DatasetRef): string {
+  return `${source.shortName} v${source.version}`;
+}
+
+function formatValue(value: number | null): string {
+  return value === null
+    ? "unavailable"
+    : Number(value.toPrecision(6)).toString();
+}
+
+function formatYearMonth(month: YearMonth): string {
+  return `${month.year}-${String(month.month).padStart(2, "0")}`;
+}
+
+function isYearMonth(value: YearMonth): boolean {
+  return (
+    Number.isInteger(value.year) &&
+    Number.isInteger(value.month) &&
+    value.month >= 1 &&
+    value.month <= 12
+  );
+}

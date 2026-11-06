@@ -1,0 +1,411 @@
+import {
+  MONTH_NAMES,
+  type DatasetRef,
+  type LayerId,
+  type YearMonth,
+} from "./timeline";
+import { SNOW_COVER_DATASET, SNOW_COVER_LIMITATIONS } from "./snowCover";
+
+/**
+ * When a latitude is too dark for MOD10CM to see snow at all (cryosphere).
+ *
+ * Every other snow helper here describes values the product returned. This one
+ * answers the question that comes *before* them: at this latitude, in this
+ * calendar month, could MODIS have observed anything? MOD10CM is an optical
+ * product — it maps snow from reflected sunlight — so where the sun does not
+ * rise, or barely clears the horizon, there is no observation to average, and
+ * `SNOW_COVER_LIMITATIONS` already warns that "polar-darkness gaps can depress
+ * the covered-area value". This module makes that standing caveat specific:
+ * it says *which* months, at *which* latitude, cannot carry a measurement.
+ *
+ * The geometry is exact and needs no network. The sun's elevation peaks at
+ * local solar noon at `90° - |latitude - declination|`, so a day has no sunrise
+ * when that peak is at or below zero, and a month is unobservable when its
+ * best day never clears the retrieval floor below.
+ *
+ * Two things this is deliberately *not*:
+ *
+ *  - Not a per-year ephemeris. It is a climatological property of latitude —
+ *    "which calendar months can be seen here" — computed on a fixed 365-day
+ *    reference year, so it takes no year argument. Day-level dates shift by
+ *    about a day across the leap cycle; the monthly answer does not.
+ *  - Not a claim about what the pixel contains. Measured 2026-08-11 against
+ *    GIBS: at six Arctic land sites the product returned *nothing* in dark
+ *    months, but over the Antarctic plateau it returned a filled 100% value
+ *    year-round, through full polar night. So darkness does not have one
+ *    rendered signature, and a filled dark-month pixel is not evidence that an
+ *    observation was made. Callers should withhold or caveat such months
+ *    rather than read them as measurements; this module names them, and never
+ *    infers depth, snow-water-equivalent, melt, runoff, cause, or any future
+ *    value.
+ *
+ * Pure, render-free logic (see snowCoverIllumination.test.ts). Provenance is
+ * inherited from ./snowCover so a publication cites MOD10CM, not the picture.
+ */
+
+/**
+ * Solar-noon elevation, in degrees, at or above which a month is treated as
+ * carrying a usable MOD10CM retrieval.
+ *
+ * A reporting convention of this app, not a published product threshold — but
+ * an empirically anchored one. Measured 2026-08-11 over six Arctic land sites
+ * across all twelve months of 2024 (72 site-months, GIBS WMS): all 17 months
+ * whose peak noon elevation was at or below 4.0° returned no snow pixels
+ * whatever, and the lowest-peaking month that returned any returned almost
+ * none — 4% of its cells, at a 4.9° peak. Five degrees sits in that gap.
+ *
+ * The converse does not hold and is not claimed: brightly lit months came back
+ * blank too, because snow-free ground renders transparent. Absence is
+ * therefore not a signature of darkness, which is the whole reason this is
+ * computed from geometry rather than read off the imagery. A different floor
+ * would classify a different set of months; the elevation itself is reported
+ * alongside the class so a reader can re-judge.
+ */
+export const SNOW_RETRIEVAL_MIN_NOON_ELEVATION_DEG = 5;
+
+/** The one layer whose export {@link snowIlluminationCsvHeaders} speaks for. */
+const SNOW_ILLUMINATION_CSV_LAYER_ID = "snow" satisfies LayerId;
+
+/** Day counts of the fixed 365-day reference year, January first. */
+const REFERENCE_MONTH_DAYS = [
+  31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+] as const;
+
+export type SnowIlluminationClass = "polar-night" | "low-sun" | "sunlit";
+
+export interface SnowIlluminationMonth {
+  /** Calendar month, 1-12. */
+  month: number;
+  label: string;
+  class: SnowIlluminationClass;
+  /** Days of the month on which the sun never rises. */
+  polarNightDays: number;
+  daysInMonth: number;
+  /** The month's best solar-noon elevation, in degrees (negative when dark). */
+  maxNoonElevationDeg: number;
+}
+
+/** Extra caveats specific to reducing solar geometry to an observability call. */
+export const SNOW_ILLUMINATION_LIMITATIONS = [
+  ...SNOW_COVER_LIMITATIONS,
+  "Observability is solar geometry only; a sunlit month can still be cloud-obscured, and this makes no claim about cloud.",
+  "The retrieval floor is a reporting convention anchored to measured GIBS behaviour, not a published product threshold; a different floor would classify a different set of months.",
+  "Elevations are geometric, for the centre of the sun's disc; refraction and the solar radius lift the apparent sun by roughly 0.8°, shifting a boundary by about a day.",
+  "A dark month is not reliably blank — over the Antarctic plateau the product returned a filled value through full polar night — so a value present in an unobservable month must not be read as a measurement of it.",
+] as const;
+
+export interface SnowIlluminationProfile {
+  kind: "snow-cover-illumination-window";
+  /** Explicitly prevents consumers from treating this as a forecast. */
+  isForecast: false;
+  dataset: DatasetRef;
+  latitude: number;
+  /** All twelve calendar months, January first. */
+  months: readonly SnowIlluminationMonth[];
+  /** Months in which the sun never rises on any day. */
+  polarNightMonths: readonly SnowIlluminationMonth[];
+  /** Months with a sunrise whose noon sun still stays under the floor. */
+  lowSunMonths: readonly SnowIlluminationMonth[];
+  /** True when every calendar month clears the retrieval floor. */
+  observableYearRound: boolean;
+  limitations: readonly string[];
+}
+
+/**
+ * Solar declination in degrees for a day of the 365-day reference year.
+ *
+ * Spencer's (1971) Fourier series, as tabulated by Iqbal (1983) — accurate to
+ * better than 0.04°, which is far finer than the ~0.8° refraction offset the
+ * geometric convention already accepts. Returns null outside 1-365.
+ */
+export function solarDeclinationDeg(dayOfYear: number): number | null {
+  if (!Number.isInteger(dayOfYear) || dayOfYear < 1 || dayOfYear > 365) {
+    return null;
+  }
+  const angle = (2 * Math.PI * (dayOfYear - 1)) / 365;
+  const radians =
+    0.006918 -
+    0.399912 * Math.cos(angle) +
+    0.070257 * Math.sin(angle) -
+    0.006758 * Math.cos(2 * angle) +
+    0.000907 * Math.sin(2 * angle) -
+    0.002697 * Math.cos(3 * angle) +
+    0.00148 * Math.sin(3 * angle);
+  return (radians * 180) / Math.PI;
+}
+
+/**
+ * The sun's elevation at local solar noon, in degrees, for a latitude and day
+ * of the reference year. Negative when the sun stays below the horizon all
+ * day. Null when either argument is out of range.
+ */
+export function noonSolarElevationDeg(
+  latitude: number,
+  dayOfYear: number
+): number | null {
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90) return null;
+  const declination = solarDeclinationDeg(dayOfYear);
+  if (declination === null) return null;
+  return 90 - Math.abs(latitude - declination);
+}
+
+/**
+ * Classify one calendar month at one latitude. Null for a non-finite or
+ * out-of-range latitude, or a month outside 1-12.
+ */
+export function describeMonthIllumination(
+  latitude: number,
+  month: number
+): SnowIlluminationMonth | null {
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90) return null;
+  if (!Number.isInteger(month) || month < 1 || month > 12) return null;
+
+  const daysInMonth = REFERENCE_MONTH_DAYS[month - 1];
+  let firstDay = 1;
+  for (let m = 0; m < month - 1; m++) firstDay += REFERENCE_MONTH_DAYS[m];
+
+  let polarNightDays = 0;
+  let maxNoonElevationDeg = -Infinity;
+  for (let day = 0; day < daysInMonth; day++) {
+    const elevation = noonSolarElevationDeg(latitude, firstDay + day);
+    if (elevation === null) continue;
+    if (elevation <= 0) polarNightDays++;
+    if (elevation > maxNoonElevationDeg) maxNoonElevationDeg = elevation;
+  }
+
+  // Classified on the month's *best* day: one usable day is enough for the
+  // monthly average to carry an observation, so the peak — not the mean —
+  // decides. The polar-night tally rides along so a caller can see how much
+  // of a "sunlit" month was nonetheless dark.
+  const illuminationClass: SnowIlluminationClass =
+    polarNightDays === daysInMonth
+      ? "polar-night"
+      : maxNoonElevationDeg < SNOW_RETRIEVAL_MIN_NOON_ELEVATION_DEG
+        ? "low-sun"
+        : "sunlit";
+
+  return {
+    month,
+    label: MONTH_NAMES[month - 1],
+    class: illuminationClass,
+    polarNightDays,
+    daysInMonth,
+    maxNoonElevationDeg,
+  };
+}
+
+/**
+ * The full twelve-month observability profile for a latitude, or null when the
+ * latitude is not a usable coordinate.
+ */
+export function describeSnowIllumination(
+  latitude: number
+): SnowIlluminationProfile | null {
+  const months: SnowIlluminationMonth[] = [];
+  for (let month = 1; month <= 12; month++) {
+    const described = describeMonthIllumination(latitude, month);
+    if (!described) return null;
+    months.push(described);
+  }
+  const polarNightMonths = months.filter((m) => m.class === "polar-night");
+  const lowSunMonths = months.filter((m) => m.class === "low-sun");
+  return {
+    kind: "snow-cover-illumination-window",
+    isForecast: false,
+    dataset: SNOW_COVER_DATASET,
+    latitude,
+    months,
+    polarNightMonths,
+    lowSunMonths,
+    observableYearRound:
+      polarNightMonths.length === 0 && lowSunMonths.length === 0,
+    limitations: SNOW_ILLUMINATION_LIMITATIONS,
+  };
+}
+
+/**
+ * One sentence naming the months a snow record at this latitude cannot have
+ * observed, or null where the whole year is observable — which is everywhere
+ * equatorward of 63.3°, i.e. for most of the globe this says nothing and costs
+ * the reader nothing.
+ */
+export function snowIlluminationNote(latitude: number): string | null {
+  // Deliberately walks the months itself rather than reading the full profile:
+  // this is the one entry point the app bundles, and going through
+  // describeSnowIllumination would drag the cited-profile machinery — and the
+  // whole ./snowCover limitation catalogue — into the shipped chunk with it.
+  const polarNight: string[] = [];
+  const lowSun: string[] = [];
+  for (let month = 1; month <= 12; month++) {
+    const described = describeMonthIllumination(latitude, month);
+    if (!described) return null;
+    if (described.class === "polar-night") polarNight.push(described.label);
+    else if (described.class === "low-sun") lowSun.push(described.label);
+  }
+  if (polarNight.length === 0 && lowSun.length === 0) return null;
+
+  const clauses: string[] = [];
+  if (polarNight.length > 0) {
+    clauses.push(`${polarNight.join(", ")} (sun never rises)`);
+  }
+  if (lowSun.length > 0) {
+    clauses.push(
+      `${lowSun.join(", ")} (noon sun under ` +
+        `${SNOW_RETRIEVAL_MIN_NOON_ELEVATION_DEG}°)`
+    );
+  }
+  return (
+    `At ${formatLatitude(latitude)} MOD10CM is too dark to observe snow in ` +
+    `${clauses.join(" or ")} — readings there are not measurements of those months.`
+  );
+}
+
+/**
+ * The same observability window as a probe-CSV header line, or `[]` where the
+ * whole year is observable.
+ *
+ * The panel subtitle has carried {@link snowIlluminationNote} since the note
+ * shipped, but the exported file carried nothing: a snow record downloaded at
+ * 75°N hands over a value column whose polar-night months are indistinguishable
+ * from any other empty month, and whose *filled* dark months look like ordinary
+ * measurements. `SNOW_ILLUMINATION_LIMITATIONS` records why that second case is
+ * not hypothetical — over the Antarctic plateau the product returned a filled
+ * value through full polar night — so the file is exactly where the refusal
+ * matters most, being the copy a reader keeps and reduces further.
+ *
+ * Point probes only. A drawn region spans a range of latitudes rather than one,
+ * and the region export deliberately passes no per-point context; the equatorward
+ * edge that {@link snowIlluminationPairNote} reasons about is a different claim
+ * and is not made here.
+ *
+ * Walks the months directly rather than reading the full profile, for the same
+ * bundle reason {@link snowIlluminationNote} documents: this is a shipped entry
+ * point, and `describeSnowIllumination` would drag the cited-profile machinery
+ * into the entry chunk with it.
+ */
+export function snowIlluminationCsvHeaders(
+  layerId: LayerId | undefined,
+  latitude: number
+): string[] {
+  if (layerId !== SNOW_ILLUMINATION_CSV_LAYER_ID) return [];
+  // No commas anywhere below: a `#` line must never contain a CSV delimiter
+  // (see the header discipline documented on `csvHeaderText` in probe.ts).
+  // This is why the month lists are slash-joined here and comma-joined in the
+  // panel sentence — same months, same order, delimiter-safe.
+  const polarNight: string[] = [];
+  const lowSun: string[] = [];
+  for (let month = 1; month <= 12; month++) {
+    const described = describeMonthIllumination(latitude, month);
+    if (!described) return [];
+    if (described.class === "polar-night") polarNight.push(described.label);
+    else if (described.class === "low-sun") lowSun.push(described.label);
+  }
+  if (polarNight.length === 0 && lowSun.length === 0) return [];
+
+  const clauses: string[] = [];
+  if (polarNight.length > 0) {
+    clauses.push(`${polarNight.join(" / ")} (sun never rises)`);
+  }
+  if (lowSun.length > 0) {
+    clauses.push(
+      `${lowSun.join(" / ")} (noon sun under ` +
+        `${SNOW_RETRIEVAL_MIN_NOON_ELEVATION_DEG}°)`
+    );
+  }
+  return [
+    `# snow_illumination_window: at ${formatLatitude(latitude)} MOD10CM is too ` +
+      `dark to observe snow in ${clauses.join(" or ")} — a value in those ` +
+      `months is not a measurement of them.`,
+  ];
+}
+
+/**
+ * The latitude of a footprint's *equatorward* edge, where the sun climbs
+ * highest — or null when the span is not a usable pair of bounds.
+ *
+ * Returns 0 for a footprint straddling the equator: some of it is then fully
+ * sunlit whatever the month, which is all the caller needs to know.
+ */
+function equatorwardLatitude(south: number, north: number): number | null {
+  if (!Number.isFinite(south) || !Number.isFinite(north)) return null;
+  if (south > north || Math.abs(south) > 90 || Math.abs(north) > 90)
+    return null;
+  if (south <= 0 && north >= 0) return 0;
+  return Math.abs(south) < Math.abs(north) ? south : north;
+}
+
+/**
+ * One sentence naming which months of a *reported pair* MOD10CM could not have
+ * observed anywhere over a footprint, or null when it could see both.
+ *
+ * `snowIlluminationNote` answers "which months of the year are dark here",
+ * which suits the point probe: it charts the whole record at one coordinate, so
+ * every month is on screen and the latitude is exact. The place panel is the
+ * other shape twice over — it reports one month's value plus the change from
+ * the month before it, and it reports them as a mean over an *area*. Both
+ * differences are handled here.
+ *
+ * Judged at the footprint's equatorward edge, never its centre. Darkness varies
+ * across a span — Antarctica as a whole reaches to 60°S, which is sunlit in May
+ * even while the plateau is in full night — so a centre latitude would disown a
+ * mean that partly *was* observed. Taking the edge where the sun climbs highest
+ * makes the note a one-sided guarantee: it fires only when no part of the place
+ * could be seen, and stays silent when any part could. It therefore
+ * under-reports a mostly-dark span rather than overclaiming, which is the right
+ * direction for a caveat attached to a number the reader can already see.
+ *
+ * Both consequences are stated because the panel shows both numbers. A dark
+ * month is not reliably blank (see the module note above), so a value present
+ * for one is not a measurement of it; and a difference is only a measurement of
+ * change when *both* endpoints were observed, so one dark endpoint is enough to
+ * disqualify the change. No adjacency is assumed — MOD10CM has interior
+ * distribution gaps, so a "consecutive" published pair can straddle one.
+ *
+ * Silent for every footprint whose reported months are both sunlit, which is
+ * the whole globe equatorward of 63.3° and most of the year beyond it. Walks
+ * the months directly, like `snowIlluminationNote`, to keep the cited-profile
+ * machinery and the ./snowCover limitation catalogue out of the shipped chunk.
+ */
+export function snowIlluminationPairNote(
+  footprint: { south: number; north: number },
+  earlier: YearMonth,
+  later: YearMonth
+): string | null {
+  const latitude = equatorwardLatitude(footprint.south, footprint.north);
+  if (latitude === null) return null;
+
+  const described = [earlier, later].map((ym) =>
+    describeMonthIllumination(latitude, ym.month)
+  );
+  if (described.some((month) => month === null)) return null;
+
+  const dark = (described as SnowIlluminationMonth[]).filter(
+    (month) => month.class !== "sunlit"
+  );
+  if (dark.length === 0) return null;
+
+  // A pair can name the same calendar month twice (a year-apart comparison is
+  // not this panel's shape today, but nothing here requires adjacency), and
+  // saying "May and May" would read as two findings rather than one.
+  const unique = dark.filter(
+    (month, index) => dark.findIndex((m) => m.month === month.month) === index
+  );
+  const plural = unique.length > 1;
+  return (
+    `No part of this place is lit enough for MOD10CM to observe snow in ` +
+    `${unique.map(darkMonthClause).join(" and ")} — its equatorward edge is ` +
+    `${formatLatitude(latitude)} — so a value present for ` +
+    `${plural ? "those months is not a measurement of them" : "that month is not a measurement of it"}, ` +
+    `and the month-over-month change is not a measurement of change.`
+  );
+}
+
+function darkMonthClause(month: SnowIlluminationMonth): string {
+  return month.class === "polar-night"
+    ? `${month.label} (sun never rises)`
+    : `${month.label} (noon sun under ${SNOW_RETRIEVAL_MIN_NOON_ELEVATION_DEG}°)`;
+}
+
+function formatLatitude(latitude: number): string {
+  return `${Math.abs(latitude).toFixed(1)}°${latitude < 0 ? "S" : "N"}`;
+}

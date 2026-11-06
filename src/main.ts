@@ -1,0 +1,3875 @@
+// Geist and Geist Mono, self-hosted (SIL OFL 1.1). One typeface on every
+// platform, where `system-ui` was Segoe on Windows, SF on a Mac and whatever
+// Linux had, so text metrics (and the layouts measured against them) now match
+// between a reader's machine and CI.
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import * as THREE from "three";
+import { TrendDetectiveBridge } from "./ui/TrendDetectiveBridge";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+  LAYERS,
+  clampIndexToLayer,
+  monthRangeForLayer,
+  nearestMonthIndex,
+  formatTimelineLabel,
+  ymEqual,
+  utcYearMonth,
+  type LayerConfig,
+  type LayerId,
+  type YearMonth,
+} from "./lib/timeline";
+import {
+  encodeViewState,
+  decodeViewState,
+  sharedPlaceFrom,
+  type ProbeShare,
+  type SharedPlace,
+} from "./lib/viewState";
+import { latLngToVector3, vector3ToLatLng, formatLatLng } from "./lib/geo";
+import {
+  buildProbeCsv,
+  normalizeLon,
+  PROBE_SCALES,
+  scaleValue,
+} from "./lib/probe";
+import {
+  inversionAccuracyCsvHeaders,
+  probeInversionAccuracy,
+} from "./lib/probeInversionAccuracy";
+import {
+  probeSstColdEndAccuracy,
+  sstColdEndAccuracyCsvHeaders,
+} from "./lib/sstColdEndAccuracy";
+import { uncalibratedVegetationAccuracyCsvHeaders } from "./lib/vegetationIndexRamp";
+import { unvalidatedInversionCsvHeaders } from "./lib/unvalidatedInversionAccuracy";
+import { vegetationSamplingIdentityCsvHeaders } from "./lib/vegetationObservingConstraints";
+import {
+  probeSstExtremeCensoring,
+  sstExtremeBoundPrefix,
+  sstExtremeCensoringCsvHeaders,
+} from "./lib/probeSstExtremeCensoring";
+import {
+  aerosolCeilingBoundPrefix,
+  aerosolCeilingCensoringCsvHeaders,
+  probeAerosolCeilingCensoring,
+} from "./lib/probeAerosolCeilingCensoring";
+import {
+  lstExtremeBoundPrefix,
+  lstExtremeCensoringCsvHeaders,
+  probeLstExtremeCensoring,
+} from "./lib/probeLstExtremeCensoring";
+import { averagedAerosolCensoringCsvHeaders } from "./lib/probeAerosolAveragedCensoring";
+import { averagedLstCensoringCsvHeaders } from "./lib/probeLstAveragedCensoring";
+import {
+  probeRecordGaps,
+  probeRecordGapsCsvHeaders,
+} from "./lib/probeRecordGaps";
+import { probeRetrievalFailureNote } from "./lib/probeRetrievalFailure";
+import { emptyAtmosphereProbeNote } from "./lib/atmosphereProbeDomain";
+import { marineAveragedSstCensoringCsvHeaders } from "./lib/marineAveragedSstCensoring";
+import { averagedSstSupportNote } from "./lib/marineAveragedSstSupport";
+import { sstNativeSupportNote } from "./lib/sstNativeSupport";
+import { vegetationAveragedSupportNote } from "./lib/vegetationAveragedSupport";
+import { vegetationChartedRecordNote } from "./lib/vegetationChartedRecord";
+import { gldasAveragedSupportNote } from "./lib/gldasAveragedSupport";
+import { gldasChartedRecordNote } from "./lib/gldasChartedRecord";
+import { airTemperatureAveragedSupportNote } from "./lib/airTemperatureAveragedSupport";
+import { airTemperatureChartedRecordNote } from "./lib/airTemperatureChartedRecord";
+import { snowAveragedSupportNote } from "./lib/snowAveragedSupport";
+import { snowChartedRecordNote } from "./lib/snowChartedRecord";
+import { emptyMarineProbeNote } from "./lib/marineProbeDomain";
+import { emptySnowProbeNote } from "./lib/snowProbeAbsence";
+import { emptyVegetationProbeNote } from "./lib/vegetationProbeAbsence";
+import { emptySoilProbeNote } from "./lib/soilProbeDomain";
+import { emptyLstProbeNote } from "./lib/lstProbeDomain";
+import {
+  seasonalSamplingBalance,
+  seasonalSamplingCsvHeaders,
+} from "./lib/seasonalSamplingBalance";
+import { sstSamplingIdentityCsvHeaders } from "./lib/seaSurfaceTemperatureSamplingIdentity";
+import { sstObservingConstraintCsvHeaders } from "./lib/sstObservingConstraints";
+import { lstSamplingIdentityCsvHeaders } from "./lib/lstObservingConstraints";
+import {
+  snowIlluminationCsvHeaders,
+  snowIlluminationNote,
+} from "./lib/snowCoverIllumination";
+import { bboxOutline, lookupPlace, type GeoResult } from "./lib/geocoding";
+import {
+  geometryBounds,
+  isAreaGeometry,
+  type GeoGeometry,
+} from "./lib/geojson";
+import { refreshDataLatest } from "./lib/freshness";
+import { isAbortError, isOnline, OfflineError } from "./lib/net";
+import { nextPixelRatio } from "./lib/perf";
+import { ProbeSampler } from "./probe/ProbeSampler";
+import { ProbePanel } from "./ui/ProbePanel";
+import { dismissPlaceCompare, frameComparePins } from "./ui/placeCompareBridge";
+import { CompareController } from "./scene/CompareController";
+import { CompareControls } from "./ui/CompareControls";
+import {
+  exportMonthStamp,
+  imageryUrlExport,
+  provenanceMonths,
+  resolvePinnedMonth,
+} from "./lib/compare";
+import { ShareButton } from "./ui/ShareButton";
+import { ExportControls } from "./ui/ExportControls";
+import { ThemeToggle } from "./ui/ThemeToggle";
+import type { Theme } from "./lib/theme";
+import { GlobeTextureManager } from "./textures/GlobeTextureManager";
+import { TimeSlider } from "./ui/TimeSlider";
+import { dataCurrencyNote } from "./ui/dataCurrency";
+import { LayerSelector } from "./ui/LayerSelector";
+import { Toolbar } from "./ui/Toolbar";
+import { Legend } from "./ui/Legend";
+import type { MapOverlay } from "./overlays/types";
+import { BordersOverlay } from "./overlays/BordersOverlay";
+import { CitiesOverlay } from "./overlays/CitiesOverlay";
+import { AtmosphereOverlay } from "./overlays/AtmosphereOverlay";
+import {
+  EARTHQUAKE_HOVER_SOURCE_COUNT,
+  EarthquakesOverlay,
+} from "./overlays/EarthquakesOverlay";
+import { PlateBoundariesOverlay } from "./overlays/PlateBoundariesOverlay";
+import { VolcanoesOverlay } from "./overlays/VolcanoesOverlay";
+import { TiledImageryOverlay } from "./overlays/TiledImageryOverlay";
+import { TimeZonesOverlay } from "./overlays/TimeZonesOverlay";
+import { plainLayerName } from "./lib/plainLanguage";
+import type { ViewCard } from "./ui/viewCards";
+import type { TerrainGlobe } from "./scene/TerrainGlobe";
+import { CameraFlyer } from "./scene/CameraFlyer";
+import { GlobeMomentum } from "./scene/GlobeMomentum";
+import { LocationHighlight } from "./scene/LocationHighlight";
+import { HoverInspector } from "./scene/HoverInspector";
+import { RegionDrawer } from "./scene/RegionDrawer";
+import { RegionButton } from "./ui/RegionButton";
+import { ErrorToast } from "./ui/ErrorToast";
+import { Announcer } from "./ui/Announcer";
+import {
+  SESSION_STORAGE_KEY,
+  serializeSession,
+  parseSession,
+  type RecentSearch,
+  type SessionState,
+} from "./lib/sessionState";
+import type { SearchHit } from "./lib/search/provider";
+import type { Bounds } from "./lib/imagery";
+import { StudyRegion } from "./scene/StudyRegion";
+import { StudyChip } from "./ui/StudyChip";
+import { ShortcutsOverlay } from "./ui/ShortcutsOverlay";
+import { ThinkingOrb } from "./ui/ThinkingOrb";
+import type { StoryCard, StoryCardHandlers } from "./ui/StoryCard";
+import { markStoriesWelcomed, storiesWelcomed } from "./lib/storiesWelcome";
+import type { ClipSubject } from "./ui/ClipRecorder";
+import { LEGENDS, legendTicks } from "./lib/legend";
+import { ActionMenu } from "./ui/ActionMenu";
+import { loadAdmin1Index, loadCountryIndex } from "./lib/countryIndex";
+import { rotateSpeedForDistance, stepGlobeView } from "./lib/navigation";
+import {
+  MAX_CAMERA_DISTANCE,
+  altitudeZoomDistance,
+  clipPlanes,
+  easedAltitudeDistance,
+  ellipsoidRadiusUnits,
+  minimumCameraDistance,
+  pinchAltitudeFactor,
+  resolveGroundPoint,
+  wheelAltitudeFactor,
+} from "./lib/cameraZoom";
+import type { EarthEvent } from "./lib/events";
+
+/**
+ * RoamingEye
+ * A grab-to-rotate 3D Earth whose surface is driven by a temporal scrubber:
+ * scrub month-by-month through NASA's monthly seasonal composites (vegetation,
+ * snow) to watch the planet's seasons shift across years.
+ */
+
+declare global {
+  interface Window {
+    /** Set to true after the first render — used by the e2e smoke test. */
+    __APP_READY__?: boolean;
+    /** Whether the render loop is running (false while the tab is hidden). */
+    __RENDER_ACTIVE__?: boolean;
+    /** GPU-resource counters for the soak e2e's leak canary. */
+    __RENDERER_STATS__?: () => { textures: number; geometries: number };
+  }
+}
+
+const EARTH_RADIUS = 1;
+
+const canvas = document.querySelector<HTMLCanvasElement>("#globe");
+if (!canvas) {
+  throw new Error("RoamingEye: #globe canvas element not found");
+}
+const loaderEl = document.querySelector<HTMLElement>("#loader");
+const loaderSlowEl = document.querySelector<HTMLElement>("#loader-slow");
+
+// The boot curtain's orb: a dotted globe, searching, while the real one loads.
+// Every module script on the page is one entry chunk, so nothing here runs
+// until three.js has arrived too; the curtain shows "Loading Earth…" alone for
+// that moment and the orb fades in (style.css), rather than a CSS spinner
+// being swapped out from under the reader mid-boot.
+const bootOrb = new ThinkingOrb("searching", 64);
+document.querySelector("#loader-orb")?.append(bootOrb.canvas);
+bootOrb.start();
+const statusEl = document.querySelector<HTMLElement>("#timeline-status");
+const layerEl = document.querySelector<HTMLElement>("#layer-selector");
+const legendEl = document.querySelector<HTMLElement>("#legend");
+const timelineEl = document.querySelector<HTMLElement>("#timeline");
+const toolbarEl = document.querySelector<HTMLElement>("#toolbar");
+const searchEl = document.querySelector<HTMLElement>("#search");
+const tooltipEl = document.querySelector<HTMLElement>("#hover-tooltip");
+const reticleEl = document.querySelector<HTMLElement>("#globe-reticle");
+const studyChipEl = document.querySelector<HTMLElement>("#study-chip");
+const providersPageEl = document.querySelector<HTMLElement>("#providers-page");
+const softwarePageEl = document.querySelector<HTMLElement>("#software-page");
+const fleetPageEl = document.querySelector<HTMLElement>("#fleet-page");
+const probeEl = document.querySelector<HTMLElement>("#probe-panel");
+const compareEl = document.querySelector<HTMLElement>("#compare");
+const compareDividerEl =
+  document.querySelector<HTMLElement>("#compare-divider");
+const providersLinkEl = document.querySelector<HTMLElement>("#providers-link");
+const softwareLinkEl = document.querySelector<HTMLElement>("#software-link");
+const fleetLinkEl = document.querySelector<HTMLElement>("#fleet-link");
+const provenanceEl = document.querySelector<HTMLElement>("#provenance");
+const controlsEl = document.querySelector<HTMLElement>("#controls");
+const exportEl = document.querySelector<HTMLElement>("#export");
+
+// Set by the fold block near the bottom of this file, and called when an
+// overlay opens on top of the panel. It is a `let` rather than a direct call
+// because the two live at opposite ends of the module: the probe is wired
+// during boot and the fold afterwards, and the probe only ever fires it on a
+// gesture that happens long after both have run.
+let foldHudForOverlay: (() => void) | null = null;
+
+// --- Renderer ---------------------------------------------------------------
+// WebGL can be unavailable (blocked by policy, ancient drivers, disabled
+// hardware acceleration) — the constructor throws. Show a human explanation
+// in the loader instead of a blank page and a console stack.
+function webglUnavailable(err: unknown): never {
+  if (loaderEl) {
+    loaderEl.classList.remove("is-hidden");
+    loaderEl.innerHTML = `
+      <div class="loader__fallback">
+        <h2>RoamingEye needs WebGL</h2>
+        <p>Your browser blocked or doesn't support WebGL, which draws the 3D
+        globe. Try enabling hardware acceleration in your browser settings,
+        updating your graphics drivers, or a current version of Chrome,
+        Firefox, Edge, or Safari.</p>
+        <p><a href="https://get.webgl.org/" target="_blank" rel="noopener">Test WebGL support →</a></p>
+      </div>`;
+  }
+  throw err instanceof Error ? err : new Error(String(err));
+}
+let renderer: THREE.WebGLRenderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+} catch (err) {
+  webglUnavailable(err);
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+// --- Scene & camera ---------------------------------------------------------
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.01, // near plane small enough to get right down to the surface
+  100
+);
+camera.position.set(0, 0, 3.2);
+
+// --- Lighting ---------------------------------------------------------------
+// Strong ambient so the whole globe stays readable (satellite-eye feel),
+// plus a soft directional light for a little dimensionality.
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+sunLight.position.set(5, 3, 5);
+scene.add(sunLight);
+
+// Terrain meshes are Lambert (the imagery is divided by π) and only they
+// sit on layer 1. This fill brings Esri water and land back up to a readable
+// satellite brightness; the sphere keeps the lights above, which were tuned
+// for its Standard material.
+const terrainFill = new THREE.AmbientLight(0xffffff, 1.35);
+terrainFill.layers.set(1);
+scene.add(terrainFill);
+camera.layers.enable(1);
+
+// --- Starfield backdrop -----------------------------------------------------
+const starfield = createStarfield();
+scene.add(starfield);
+
+// --- Theme (light/dark) -------------------------------------------------------
+// The DOM theme is CSS-variable driven; the WebGL side mirrors it here: a
+// space-dark or daylight clear color, and stars only against a night sky.
+function applyTheme(_theme: Theme): void {
+  // Set transparent clear color so the blurred Error 404 celestial backdrop shines through!
+  renderer.setClearColor(0x000000, 0);
+  starfield.visible = true;
+}
+
+const themeEl = document.querySelector<HTMLElement>("#theme-toggle");
+if (themeEl) {
+  // Constructing the toggle applies the initial theme (calls applyTheme once).
+  new ThemeToggle(themeEl, applyTheme);
+}
+applyTheme("light");
+
+// --- Earth ------------------------------------------------------------------
+// The science layer. A transparent PNG, so oceans and no-data show whatever
+// is behind the sphere instead of a dark fill. The dark colour holds only
+// until the first composite arrives (GlobeTextureManager tints it white).
+// The mesh stays the raycast target for hover, probe, and region drawing
+// even when a close view stops it drawing (see TerrainGlobe).
+const earth = new THREE.Mesh(
+  new THREE.SphereGeometry(EARTH_RADIUS, 96, 96),
+  new THREE.MeshStandardMaterial({
+    color: 0x111418,
+    roughness: 1,
+    metalness: 0,
+    transparent: true,
+  })
+);
+scene.add(earth);
+
+// Satellite imagery over streamed terrain, loaded off the first-paint path.
+// From orbit it shows through the science sphere; up close it carries the
+// month itself and the sphere stops drawing.
+let terrainGlobe: TerrainGlobe | null = null;
+let terrainView: { layer: LayerConfig; ym: YearMonth } | null = null;
+/** True while a multi-month probe owns the network. Survives the chunk arriving mid-sample. */
+let terrainSampling = false;
+
+function setTerrainSampling(active: boolean): void {
+  terrainSampling = active;
+  terrainGlobe?.setSampling(active);
+}
+
+void import("./scene/TerrainGlobe")
+  .then(({ TerrainGlobe: Terrain }) => {
+    terrainGlobe = new Terrain(camera, renderer, EARTH_RADIUS);
+    terrainGlobe.setSampling(terrainSampling);
+    scene.add(terrainGlobe.object);
+    if (terrainView) {
+      terrainGlobe.setScience(terrainView.layer, terrainView.ym);
+    }
+  })
+  .catch((err: unknown) => {
+    console.warn("RoamingEye: terrain globe failed to load", err);
+  });
+
+// --- Map overlays (toolbar-toggleable) --------------------------------------
+// Tiled streaming (RFC-001, on by default): re-drapes the visible globe with
+// WMTS tiles at the level the zoom justifies; the single full-globe texture
+// below acts as the far-zoom level 0. Fed the current layer/month by
+// refreshGlobe(), driven per-frame from the render loop.
+const hdTiles = new TiledImageryOverlay(
+  renderer.capabilities.getMaxAnisotropy()
+);
+
+// Surfaced early so the geolocation overlay can report a denied permission.
+const errorToast = new ErrorToast();
+const announcer = new Announcer();
+
+const citiesOverlay = new CitiesOverlay();
+const plateBoundariesOverlay = new PlateBoundariesOverlay();
+const volcanoesOverlay = new VolcanoesOverlay();
+const earthquakesOverlay = new EarthquakesOverlay();
+const atmosphereOverlay = new AtmosphereOverlay();
+const overlays: MapOverlay[] = [
+  hdTiles,
+  new BordersOverlay(),
+  citiesOverlay,
+  atmosphereOverlay,
+  // The geology trio — plate boundaries, volcanoes, and live seismicity line
+  // up on the globe to tell the plate-tectonics story.
+  plateBoundariesOverlay,
+  volcanoesOverlay,
+  earthquakesOverlay,
+  new TimeZonesOverlay(),
+];
+for (const overlay of overlays) scene.add(overlay.object);
+
+const highlight = new LocationHighlight();
+scene.add(highlight.object);
+
+// High-resolution study regions are kept separate from place search. Search
+// results use their actual returned boundaries, rather than a generic image box.
+function exitStudyRegion(): void {
+  studyRegion.hide();
+}
+const studyChip = studyChipEl
+  ? new StudyChip(studyChipEl, exitStudyRegion)
+  : null;
+const studyRegion = new StudyRegion(renderer.capabilities.getMaxAnisotropy(), {
+  onLoadingChange: (loading) =>
+    setStatus(loading ? "Loading high-res imagery…" : ""),
+  onStatus: (text) => studyChip?.setDetail(text),
+});
+scene.add(studyRegion.object);
+
+// --- Hover inspector (coordinate + country readout) -------------------------
+// Hoisted out of the block: the pointer is not the only thing that aims at the
+// globe, and the keyboard section below puts the same readout on the point the
+// arrow keys are turning towards.
+let inspector: HoverInspector | undefined;
+if (tooltipEl) {
+  const hover = new HoverInspector(canvas, camera, earth, tooltipEl);
+  inspector = hover;
+  hover.addPointSource(() => citiesOverlay.hoverSource);
+  hover.addPointSource(() => volcanoesOverlay.hoverSource);
+  for (let index = 0; index < EARTHQUAKE_HOVER_SOURCE_COUNT; index += 1) {
+    hover.addPointSource(() => earthquakesOverlay.hoverSources[index]);
+  }
+  hover.addLineSource(() => plateBoundariesOverlay.hoverSource);
+  loadCountryIndex()
+    .then((index) => {
+      hover.setCountryIndex(index);
+      // Admin-1 (province/state) is ~1.3 MB gzipped — load it only after the
+      // small country index has landed, so it never competes with boot. The
+      // hover upgrades in place: coords → country → province, country.
+      loadAdmin1Index()
+        .then((admin1) => hover.setAdmin1Index(admin1))
+        .catch((err) =>
+          console.warn("RoamingEye: admin-1 index failed to load", err)
+        );
+    })
+    .catch((err) =>
+      console.warn("RoamingEye: country index failed to load", err)
+    );
+}
+
+// --- Temporal imagery pipeline ----------------------------------------------
+// Restore a shared view (layer, month, camera) from the URL hash, if present —
+// links reproduce exactly what the sender was looking at. Each layer exposes
+// its full published record (MERRA-2 reaches back to 1980), so `months` is
+// per-layer (the hash layer is resolved first) and the slider rebuilds on
+// layer switch.
+const initialView = decodeViewState(window.location.hash);
+// The last session's working context (layer/month/overlays) restores on a
+// plain revisit; an explicit URL hash always wins. localStorage can throw
+// (private mode) — degrade to defaults, never break boot.
+function loadStoredSession(): SessionState {
+  try {
+    return parseSession(window.localStorage.getItem(SESSION_STORAGE_KEY));
+  } catch {
+    return {};
+  }
+}
+const storedSession = loadStoredSession();
+let recentSearches: RecentSearch[] = storedSession.recent ?? [];
+let currentLayer: LayerId = initialView.layer ?? storedSession.layer ?? "ndvi";
+let months: YearMonth[] = monthRangeForLayer(LAYERS[currentLayer]);
+let currentIndex = months.length - 1; // default: the most recent month
+// Nearest-entry mapping (not raw month arithmetic) so annual layers'
+// non-consecutive timelines restore correctly too.
+const restoredMonth = initialView.month ?? storedSession.month;
+if (restoredMonth) {
+  currentIndex = nearestMonthIndex(months, restoredMonth);
+}
+currentIndex = clampIndexToLayer(months, currentIndex, LAYERS[currentLayer]);
+if (initialView.camera) {
+  const { lat, lon, alt } = initialView.camera;
+  camera.position.copy(latLngToVector3(lat, lon, EARTH_RADIUS + alt));
+} else {
+  // Default regional framing: Center on Egypt (Nile Delta & Valley, Red Sea, Sinai)
+  camera.position.copy(latLngToVector3(26.8, 30.8, 2.3));
+  camera.lookAt(0, 0, 0);
+}
+
+let firstLoadDone = false;
+// Work that waits for the curtain to lift: a shared story link, the stories
+// invitation. Run once, when the first imagery is on screen.
+const afterFirstLoad: Array<() => void> = [];
+
+// The time-lapse (TimeSlider's play button). Playback holds on each month until
+// its imagery is on screen, so it asks whether the month last shown has
+// arrived; and while it plays, the per-frame loading line would flicker in an
+// aria-live row on every uncached month, so that line waits for it to stop.
+let imageryReady = true;
+let playing = false;
+let timeSlider: TimeSlider | undefined;
+let trendBridge: TrendDetectiveBridge | undefined;
+// The stories card (StoryCard.ts), built near the end of this module. Declared
+// here because a layer switch the reader makes ends story mode.
+let storyCard: StoryCard | undefined;
+
+// Video clips (ClipRecorder.ts, loaded on demand) draw each frame right after
+// the globe renders, and record one playback: a clip waits for a playback that
+// starts after it asks, and ends when that one stops.
+const frameHooks = new Set<() => void>();
+const playbackEndWaiters: Array<() => void> = [];
+let playbackArmed = false;
+function nextPlaybackEnd(): Promise<void> {
+  playbackArmed = false;
+  return new Promise((resolve) => playbackEndWaiters.push(resolve));
+}
+
+// How long the boot curtain may sit on a mute spinner before it says what it
+// is waiting on. Under a stalled upstream the first imagery request runs its
+// full 15 s timeout (lib/net.ts) before "Imagery failed to load" and the retry
+// button appear — and both of those are painted *behind* the curtain, which
+// covers the viewport at z-index 3. So the entire user-visible event for the
+// first fifteen seconds of a GIBS stall was a spinner and "Loading Earth…",
+// identical to a healthy boot that happens to be a second slow. Six seconds
+// clears an ordinary boot (2–4 s) comfortably; past it, silence is the wrong
+// answer whether the cause is NASA's service or the user's connection.
+const SLOW_BOOT_NOTICE_MS = 6000;
+
+const slowBootTimer = setTimeout(() => {
+  if (firstLoadDone || !loaderSlowEl) return;
+  const line = document.createElement("p");
+  line.className = "loader__slow-text";
+  // Names the service rather than blaming the connection: from here the two
+  // are indistinguishable, and this audience knows what GIBS is.
+  line.textContent = "NASA GIBS is slow to answer — still waiting on imagery.";
+  loaderSlowEl.appendChild(line);
+}, SLOW_BOOT_NOTICE_MS);
+
+// The curtain is coming up, either onto the globe or onto the failure message
+// it was hiding — the notice has nothing left to add in either case.
+function clearSlowBootNotice(): void {
+  clearTimeout(slowBootTimer);
+  loaderSlowEl?.replaceChildren();
+}
+
+const textures = new GlobeTextureManager(
+  earth.material,
+  renderer.capabilities.getMaxAnisotropy(),
+  {
+    preview: { width: 1024, height: 512 }, // prefetched for every month → instant, crisp scrub
+    sharp: { width: 2048, height: 1024 }, // loaded for the settled month (final refinement)
+    onLoadingChange: (loading) => {
+      imageryReady = !loading;
+      setStatus(loading && !playing ? "Loading imagery…" : "");
+      if (!loading && !firstLoadDone) {
+        firstLoadDone = true;
+        for (const run of afterFirstLoad.splice(0)) run();
+        clearSlowBootNotice();
+        loaderEl?.classList.add("is-hidden");
+        // The curtain fades over 0.6 s (style.css); the orb turns through it.
+        setTimeout(() => bootOrb.stop(), 700);
+      }
+    },
+    onError: () => {
+      // Could be genuinely absent data or a GIBS hiccup — offer the retry.
+      setStatus("Imagery failed to load");
+      retryBtn.hidden = false;
+    },
+  }
+);
+
+// Failed imagery is not cached (see GlobeTextureManager), so retrying is
+// simply re-driving the pipeline for the current view.
+const retryBtn = document.createElement("button");
+retryBtn.type = "button";
+retryBtn.className = "status-retry";
+retryBtn.textContent = "Retry";
+retryBtn.hidden = true;
+statusEl?.insertAdjacentElement("afterend", retryBtn);
+retryBtn.addEventListener("click", () => refreshGlobe());
+
+function refreshGlobe(): void {
+  retryBtn.hidden = true;
+  const layer = LAYERS[currentLayer];
+  const ym = months[currentIndex];
+  textures.show(layer, ym);
+  hdTiles.setView(layer, ym);
+  terrainView = { layer, ym };
+  terrainGlobe?.setScience(layer, ym);
+  updateProvenance();
+}
+
+// Prefetch previews so scrubbing updates the globe live at month boundaries.
+// Full-record layers hold 550+ months — warming them all at once would pin
+// hundreds of MB of textures, so warm the recent decade and extend backwards
+// on demand as the user scrubs into older months.
+const PREFETCH_CHUNK = 120;
+let warmedStart = Number.MAX_SAFE_INTEGER;
+
+function prefetchFrom(index: number): void {
+  const start = Math.max(0, index);
+  if (start >= warmedStart) return;
+  warmedStart = start;
+  textures.prefetchPreviews(LAYERS[currentLayer], months.slice(start));
+}
+
+function resetPrefetch(): void {
+  warmedStart = Number.MAX_SAFE_INTEGER;
+  prefetchFrom(months.length - PREFETCH_CHUNK);
+}
+
+function ensureWarm(index: number): void {
+  if (index - 24 < warmedStart) prefetchFrom(index - PREFETCH_CHUNK);
+}
+
+// --- UI ---------------------------------------------------------------------
+// The slider is rebuilt on layer switch because each layer's month range
+// differs (its constructor clears the container).
+function buildTimeline(): void {
+  if (!timelineEl) return;
+  timeSlider = new TimeSlider(
+    timelineEl,
+    months,
+    currentIndex,
+    (index) => {
+      currentIndex = index;
+      // A place comparison names one month. Scrubbing leaves that sentence
+      // behind, so the panel closes instead of describing the wrong date.
+      dismissPlaceCompare();
+      refreshGlobe();
+      ensureWarm(index);
+      // A drawn region re-resolves its own texture per month; at playback
+      // speed that is a download a frame, so it holds and catches up on stop.
+      if (studyRegion.active && !playing) {
+        studyRegion.setMonth(months[currentIndex]);
+      }
+      compareControls?.setLiveMonth(LAYERS[currentLayer], months[currentIndex]);
+      trendBridge?.syncTimeline(months, currentIndex);
+      scheduleHashSync();
+    },
+    (ym) => formatTimelineLabel(LAYERS[currentLayer], ym),
+    LAYERS[currentLayer].cadence === "annual" ? "year" : "month",
+    (message) => announcer.announce(message),
+    {
+      isFrameReady: () => imageryReady,
+      onPlayingChange: (isPlaying) => {
+        playing = isPlaying;
+        trendBridge?.syncPlayState(isPlaying);
+        if (isPlaying) playbackArmed = true;
+        else if (playbackArmed) {
+          playbackArmed = false;
+          for (const done of playbackEndWaiters.splice(0)) done();
+        }
+        // Frames show at preview resolution; the full-resolution load waits
+        // for the month the playback comes to rest on.
+        textures.holdRefinement(isPlaying);
+        if (!isPlaying) {
+          setStatus(imageryReady ? "" : "Loading imagery…");
+          if (studyRegion.active) studyRegion.setMonth(months[currentIndex]);
+        }
+      },
+    }
+  );
+  // The record end (and so how far behind the calendar it is) belongs to the
+  // layer, so the resting caption is re-stated wherever the slider is rebuilt:
+  // boot, layer switch, and the freshness probe extending the range.
+  setStatus("");
+}
+buildTimeline();
+
+// P plays or pauses the time-lapse from anywhere but a text field; Space does
+// the same while the ruler itself has focus (TimeSlider).
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "p" && e.key !== "P") return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const target = e.target as HTMLElement | null;
+  if (
+    target &&
+    (target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable)
+  ) {
+    return;
+  }
+  e.preventDefault();
+  timeSlider?.toggle();
+});
+
+const legend = legendEl ? new Legend(legendEl, currentLayer) : undefined;
+hdTiles.onVisibleCoverageChange(({ requested, loaded, failed }) => {
+  legend?.setTerrainTileCoverage(requested, loaded, failed);
+});
+
+// Assigned by the probe/compare sections below; the layer selector closes
+// both because their contents belong to the previous layer.
+let closeProbe: (() => void) | undefined;
+// Re-charts the place already on screen when the layer changes. A search
+// does not call this: the record is a click, a drawn box, or Enter.
+let chartPlace: ((result: GeoResult) => void) | undefined;
+// The search result the open chart belongs to. The place stays outlined when
+// the layer changes, so its chart follows the new layer instead of closing.
+let chartedPlace: GeoResult | undefined;
+// Set once the probe section builds it. The globe's key handler lives at module
+// scope, above the drawer, and has to ask whether draw mode owns the arrows.
+let regionDrawer: RegionDrawer | undefined;
+let compareControls: CompareControls | undefined;
+// The pinned month behind the divider, for surfaces that run before the
+// comparison controller is constructed (it needs the renderer and the globe
+// material, so it is built with the rest of the compare section below). The
+// initial refreshGlobe() draws the provenance line before that point, when no
+// comparison can be on screen.
+let pinnedComparisonMonth: () => YearMonth | undefined = () => undefined;
+let placeInsightsModule:
+  Promise<typeof import("./place/placeInsightsController")> | undefined;
+
+/**
+ * The place-insights subsystem (panel UI, samplers, and every per-domain
+ * reading) only matters once a search resolves a place, so it loads as its
+ * own chunk on first use rather than riding the boot bundle.
+ */
+function runPlaceInsights(result: GeoResult): void {
+  placeInsightsModule ??= import("./place/placeInsightsController");
+  void placeInsightsModule.then(
+    (m) =>
+      m.runPlaceInsights(result, {
+        activeLayer: currentLayer,
+        // A card puts its layer on the globe; the place's chart follows it.
+        onSelectLayer: (id) => {
+          if (id !== currentLayer) switchLayer(id);
+        },
+      }),
+    () => {
+      // A chunk fetch can fail on a flaky connection, and until now the only
+      // report was the global unhandled-rejection toast quoting a hashed
+      // bundle URL — which names nothing a reader in the field can act on.
+      // Reloading is the remedy this path can honestly name. The rejected
+      // import is held in `placeInsightsModule`, so a later search reuses it
+      // and never issues another request. (A fresh import() would re-fetch
+      // on Chromium 156+, which no longer caches a failed module fetch; this
+      // path does not make that second call.)
+      errorToast.show(
+        "Couldn't load place details. Reload the page to try again."
+      );
+    }
+  );
+}
+
+let layerSelector: LayerSelector | undefined;
+
+/**
+ * Switch the layer, as the picker does. A story switches layers too; when the
+ * reader does it themselves, they have left the story, so story mode ends.
+ */
+function switchLayer(id: LayerId, { fromStory = false } = {}): void {
+  dismissPlaceCompare();
+  if (!fromStory) storyCard?.dismiss();
+  layerSelector?.select(id);
+  toolbar?.setActiveLayer(id);
+  const place = fromStory ? undefined : chartedPlace;
+  closeProbe?.();
+  compareControls?.exit();
+  const selected = months[currentIndex];
+  currentLayer = id;
+  legend?.setLayer(id);
+  // A failed chunk already raised its own toast when the search ran.
+  void placeInsightsModule?.then(
+    (m) => m.setActivePlaceLayer(id),
+    () => undefined
+  );
+  months = monthRangeForLayer(LAYERS[id]);
+  // Keep the closest calendar month selected where the new layer covers it;
+  // clamp into range otherwise (reanalysis/ocean products start/lag apart,
+  // annual layers step by year).
+  currentIndex = nearestMonthIndex(months, selected);
+  currentIndex = clampIndexToLayer(months, currentIndex, LAYERS[id]);
+  buildTimeline();
+  trendBridge?.syncTimeline(months, currentIndex);
+  trendBridge?.setActiveLayer(id);
+  if (studyRegion.active) studyRegion.setMonth(months[currentIndex]);
+  refreshGlobe();
+  resetPrefetch();
+  scheduleHashSync();
+  if (place) chartPlace?.(place);
+}
+
+if (layerEl) {
+  layerSelector = new LayerSelector(layerEl, currentLayer, (id) =>
+    switchLayer(id)
+  );
+}
+
+refreshGlobe(); // kick off the initial month
+resetPrefetch(); // warm the preview cache for instant scrubbing
+
+// --- Timeline freshness -------------------------------------------------------
+// NASA publishes a new month of composites every few weeks; probe GIBS once at
+// boot and grow the timeline to the newest published month, so the deployed
+// site stays current without a code bump (see lib/freshness.ts).
+void refreshDataLatest().then((grew) => {
+  if (!grew) return;
+  // Freshness pins each product family separately — rebuild only if the
+  // *current* layer's own record actually grew (a compiled-`latest`
+  // reanalysis layer, or a lagging family, is unaffected).
+  const fresh = monthRangeForLayer(LAYERS[currentLayer]);
+  if (ymEqual(fresh[fresh.length - 1], months[months.length - 1])) return;
+  const selected = months[currentIndex];
+  const wasAtEnd = currentIndex === months.length - 1;
+  months = fresh;
+  // Follow the newest month if the user was already on it (the default view);
+  // otherwise stay on whatever month they had selected.
+  currentIndex = wasAtEnd
+    ? months.length - 1
+    : nearestMonthIndex(months, selected);
+  buildTimeline();
+  refreshGlobe();
+  resetPrefetch();
+  scheduleHashSync();
+});
+
+// --- Provenance & export ------------------------------------------------------
+function updateProvenance(): void {
+  if (!provenanceEl) return;
+  const layer = LAYERS[currentLayer];
+  provenanceEl.textContent = `${layer.wmsLayer} · ${provenanceMonths(
+    layer,
+    months[currentIndex],
+    pinnedComparisonMonth()
+  )}`;
+}
+
+if (exportEl) {
+  new ExportControls(
+    exportEl,
+    {
+      downloadPng: () => {
+        // Render a fresh frame and read the canvas in the same task — the
+        // drawing buffer isn't preserved between frames. An active comparison
+        // exports exactly what's on screen, divider split included.
+        if (compare.showing) {
+          compare.renderSplit(renderer, scene, camera, [hdTiles.object]);
+        } else {
+          renderer.render(scene, camera);
+        }
+        canvas.toBlob((blob) => {
+          // A successful save reports itself through the browser's own download
+          // chrome, so it needs no message of ours. A failed encode fires no
+          // download at all — without this the press is answered by nothing
+          // whatsoever, on every channel. The toast is `role="alert"`, so the
+          // one line covers both the user who would have seen the file appear
+          // and the one who would have heard it.
+          if (!blob) {
+            errorToast.show("Couldn't save the PNG. Try again.");
+            return;
+          }
+          const ym = months[currentIndex];
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          // Version in the filename: a figure in a slide deck stays traceable
+          // to the software that rendered it, months later. `showing` (not
+          // `active`) is the right gate here — it is the pinned texture landing
+          // that puts a second month into the pixels being read back.
+          a.download = `roamingeye_${currentLayer}_${exportMonthStamp(ym, compare.showing ? compare.pinned : undefined)}_v${__APP_VERSION__}.png`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }, "image/png");
+      },
+      // A comparison is built from two GetMap requests, so the copied URL has
+      // to name both months — `showing` again, for the same reason as the PNG.
+      imageryUrl: () =>
+        imageryUrlExport(
+          LAYERS[currentLayer],
+          months[currentIndex],
+          compare.showing ? compare.pinned : undefined
+        ),
+    },
+    (message) => announcer.announce(message)
+  );
+}
+
+// Intended overlay on/off state — tracked separately from object.visible
+// (which lags behind async lazy loads) so persistence is race-free. A stored
+// list (even empty) is authoritative; otherwise the defaults apply.
+const ephemeralOverlayIds = new Set(
+  overlays.filter((o) => o.ephemeral).map((o) => o.id)
+);
+const overlayState = new Set<string>(
+  (
+    storedSession.overlays ??
+    overlays.filter((o) => o.defaultOn).map((o) => o.id)
+  ).filter((id) => !ephemeralOverlayIds.has(id))
+);
+
+function saveSession(): void {
+  try {
+    window.localStorage.setItem(
+      SESSION_STORAGE_KEY,
+      serializeSession({
+        layer: currentLayer,
+        month: months[currentIndex],
+        overlays: [...overlayState],
+        recent: recentSearches,
+      })
+    );
+  } catch {
+    // Private mode / storage disabled — persistence is best-effort.
+  }
+}
+
+// How long an overlay may take to load before its toggle admits it's waiting.
+// Under this, the spinner would be a flicker the eye reads as a glitch; over
+// it, silence reads as a dead button.
+const PENDING_INDICATOR_DELAY_MS = 150;
+
+// Toolbar overlays — load lazily on first enable, then toggle visibility.
+// Returns whether the overlay is now in the requested state: an enable whose
+// lazy load fails (e.g. geolocation denied) stays off so the caller can revert.
+async function toggleOverlay(
+  overlay: MapOverlay,
+  on: boolean,
+  // Whether a failed enable is worth a toast. True for a press the user just
+  // made; false while restoring a saved session, because a cold boot on a bad
+  // connection would otherwise open with an error over the globe, and the
+  // offline banner covers that case honestly enough. The restore stays silent
+  // but no longer stays wrong: its caller un-presses the button and drops the
+  // legend key, so the bar reports what the globe is actually drawing.
+  reportFailure = false
+): Promise<boolean> {
+  if (on && overlay.ensureLoaded) {
+    try {
+      await overlay.ensureLoaded();
+    } catch (err) {
+      console.warn(`RoamingEye: overlay "${overlay.id}" failed to load`, err);
+      // Say so. The toggle is about to snap itself back off, and until now
+      // that was the only evidence the user got: a button that flicked on and
+      // returned, with the reason left in a console nobody in the field has
+      // open. The catch here also keeps the failure away from the global
+      // unhandledrejection toast, so nothing else was ever going to report it.
+      // Geolocation is the exception — it words its own denial (see
+      // `reportsOwnLoadErrors`), and a second toast would just talk over it.
+      if (reportFailure && !overlay.reportsOwnLoadErrors) {
+        errorToast.show(
+          `Couldn't load ${overlay.label}. Turn it on again to retry.`
+        );
+      }
+      overlay.object.visible = false;
+      return false;
+    }
+  }
+  overlay.object.visible = on;
+  return true;
+}
+
+// Hoisted out of the `if` below so the session restore that follows can correct
+// the bar it built: a restored overlay whose load fails has to un-press its own
+// button, and the restore loop runs after this block.
+let toolbar: Toolbar | null = null;
+let introTimer: ReturnType<typeof setTimeout> | undefined;
+let introStop: ReturnType<typeof setTimeout> | undefined;
+/** Assigned once the stories block is up; view cards call it by id. */
+let playStory: (id: string) => void = () => undefined;
+
+function dismissIntro(): void {
+  clearTimeout(introTimer);
+  clearTimeout(introStop);
+  timeSlider?.pause();
+  markStoriesWelcomed();
+  const intro = document.querySelector<HTMLElement>("#intro");
+  if (!intro) return;
+  // Skip sits in the middle of the tab order. Hiding it while it holds focus
+  // leaves the next Tab inside the panel, so the globe and Compare are never
+  // reached. A throwaway stop at the start of the document, focused and
+  // removed, puts the next Tab back on the globe.
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && intro.contains(active)) {
+    const tmp = document.createElement("span");
+    tmp.tabIndex = 0;
+    tmp.setAttribute("aria-hidden", "true");
+    tmp.style.cssText =
+      "position:fixed;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)";
+    document.body.prepend(tmp);
+    tmp.focus();
+    tmp.remove();
+  }
+  intro.hidden = true;
+}
+
+function applyView(
+  card: ViewCard,
+  extras?: { compare?: boolean; share?: boolean; clip?: boolean }
+): void {
+  dismissIntro();
+  if (card.layer && currentLayer !== card.layer) switchLayer(card.layer);
+  for (const id of card.overlays ?? []) toolbar?.press(id, true);
+  if (extras?.compare) {
+    const button = document.querySelector<HTMLButtonElement>(".compare-button");
+    if (button?.getAttribute("aria-pressed") !== "true") button?.click();
+  }
+  if (extras?.share) {
+    document.querySelector<HTMLButtonElement>(".share-button")?.click();
+  }
+  if (extras?.clip) {
+    document.querySelector<HTMLElement>("#clip-link")?.click();
+  }
+}
+
+if (toolbarEl) {
+  toolbar = new Toolbar(
+    toolbarEl,
+    overlays,
+    (overlay, on) => {
+      // Ephemeral overlays (geolocation) are never persisted — a returning
+      // visitor shouldn't be silently re-prompted for their location.
+      if (!overlay.ephemeral) {
+        if (on) overlayState.add(overlay.id);
+        else overlayState.delete(overlay.id);
+        saveSession();
+      }
+      legend?.setOverlayKey(overlay.id, on);
+
+      // An enable that has to fetch — or ask the browser where we are — used to
+      // look exactly like a settled one for the whole wait. Mark it busy, but
+      // only once the wait is long enough to be worth reporting, so an
+      // already-cached overlay never flashes a spinner on its way to instant.
+      let pendingTimer: ReturnType<typeof setTimeout> | undefined;
+      // Whether we actually told the user to wait, as opposed to merely
+      // scheduling to. Only a wait that was announced needs an ending.
+      let saidWaiting = false;
+      if (on && overlay.ensureLoaded) {
+        pendingTimer = setTimeout(() => {
+          saidWaiting = true;
+          toolbar?.setPending(overlay.id, true);
+        }, PENDING_INDICATOR_DELAY_MS);
+      }
+
+      void toggleOverlay(overlay, on, true).then((ok) => {
+        if (pendingTimer !== undefined) clearTimeout(pendingTimer);
+        toolbar?.setPending(overlay.id, false);
+        if (on && !ok) {
+          // The enable didn't take (permission denied, load error) — snap the
+          // button back and drop the (already-toasted) key.
+          toolbar?.setPressed(overlay.id, false);
+          legend?.setOverlayKey(overlay.id, false);
+          return;
+        }
+        // The press flipped `aria-pressed` immediately, which is right for the
+        // control but claims the overlay is drawn before its data exists — on
+        // a slow feed, seconds before. `aria-busy` then said "waiting", and
+        // its removal said nothing at all: the arrival of the markers is a
+        // change on the globe, and the globe is not something a screen reader
+        // can read. Only failure had a voice (the toast), so the one outcome a
+        // user could hear was the bad one. Say when it worked, on exactly the
+        // enables that admitted to waiting — announcing the instant, cached
+        // ones would be chatter over a state `aria-pressed` already carried.
+        if (saidWaiting) announcer.announce(`${overlay.label} shown`);
+      });
+    },
+    (overlay) => overlayState.has(overlay.id),
+    {
+      onView: (card) => applyView(card),
+      onThenNow: (card) => applyView(card, { compare: true }),
+      onShare: (card) => applyView(card, { share: true }),
+      onClip: (card) => applyView(card, { clip: true }),
+      onStory: (id) => playStory(id),
+    }
+  );
+  toolbar.setActiveLayer(currentLayer);
+}
+for (const overlay of overlays) {
+  if (overlayState.has(overlay.id)) {
+    legend?.setOverlayKey(overlay.id, true);
+    void toggleOverlay(overlay, true).then((ok) => {
+      if (ok) return;
+      // The restore didn't take. Until now this branch was discarded, so the
+      // failure showed up only as an absence: the button the toolbar built
+      // from the stored session stayed pressed and the legend kept the key
+      // that was set optimistically one line above — on the earthquakes feed,
+      // a two-channel key naming depth bands and magnitude sizes for markers
+      // that are not on the globe. A press that fails already snaps itself
+      // back (see the toggle handler above); a restore has exactly the same
+      // obligation, and more reason to meet it, because the user did not make
+      // the gesture and so has nothing to explain what they are looking at.
+      // The stored session is deliberately left alone: the id stays in
+      // `overlayState`, so a feed that was merely unreachable this once comes
+      // back on the next boot rather than being silently forgotten. That also
+      // makes the button an honest retry — pressing it re-runs the load.
+      toolbar?.setPressed(overlay.id, false);
+      legend?.setOverlayKey(overlay.id, false);
+    });
+  }
+}
+
+// --- Controls (rotate + zoom) -----------------------------------------------
+const controls = new OrbitControls(camera, renderer.domElement);
+// No damping: the drag tracks the pointer 1:1. Damping made the ground trail
+// the cursor by ~200 ms and gave a flick no more travel than a slow drag; the
+// spin after release now comes from GlobeMomentum (wired below the flyer).
+controls.enableDamping = false;
+controls.enablePan = false; // keep the globe centred
+// rotateSpeed is re-derived from the camera altitude every frame (see the
+// render loop): constant speed flings the camera when zoomed to the surface.
+controls.rotateSpeed = rotateSpeedForDistance(camera.position.length());
+// Zoom is altitude above the local ellipsoid, not OrbitControls' radius zoom.
+// A radius zoom runs out of travel a few hundred kilometres up.
+controls.enableZoom = false;
+// The absolute floor is the polar street-level distance. The real floor
+// depends on latitude and the terrain under the camera, and is applied after
+// every controls update. A spherical minDistance cannot be both 250 m over
+// Houston and outside the equatorial bulge.
+controls.minDistance = minimumCameraDistance(90) * 0.999;
+controls.maxDistance = MAX_CAMERA_DISTANCE;
+
+/** Inside the atmosphere shell the fresnel fills the screen. Hide it there. */
+const ATMOSPHERE_HIDE_AT = 1.17;
+
+function localCameraFloor(lat: number, lon: number): number {
+  return terrainGlobe?.minimumDistance(lat, lon) ?? minimumCameraDistance(lat);
+}
+
+/**
+ * Where a wheel zoom is gliding to. Null once the camera has arrived.
+ * Wheel ticks stack onto this destination, so a spin is one continuous
+ * move instead of a jump, a wait for tiles, and another jump.
+ */
+let zoomTarget: number | null = null;
+
+/** Multiply altitude above the ellipsoid. `factor` < 1 zooms in. */
+function applyAltitudeZoom(factor: number): void {
+  const { lat, lon } = vector3ToLatLng(camera.position);
+  const next = altitudeZoomDistance(
+    camera.position.length(),
+    ellipsoidRadiusUnits(lat),
+    factor,
+    { min: localCameraFloor(lat, lon), max: MAX_CAMERA_DISTANCE }
+  );
+  camera.position.normalize().multiplyScalar(next);
+  camera.lookAt(0, 0, 0);
+  controls.update();
+}
+
+/** Aim the glide at a new altitude. Reduced motion lands there immediately. */
+function queueAltitudeZoom(factor: number): void {
+  const { lat, lon } = vector3ToLatLng(camera.position);
+  const surface = ellipsoidRadiusUnits(lat);
+  const limits = {
+    min: localCameraFloor(lat, lon),
+    max: MAX_CAMERA_DISTANCE,
+  };
+  const base = zoomTarget ?? camera.position.length();
+  const next = altitudeZoomDistance(base, surface, factor, limits);
+  if (reduceMotion) {
+    zoomTarget = null;
+    camera.position.normalize().multiplyScalar(next);
+    camera.lookAt(0, 0, 0);
+    controls.update();
+    return;
+  }
+  zoomTarget = next;
+}
+
+/** Coast toward {@link zoomTarget}. The render loop calls this every frame. */
+function tickAltitudeZoom(delta: number): void {
+  if (zoomTarget == null) return;
+  const { lat, lon } = vector3ToLatLng(camera.position);
+  const surface = ellipsoidRadiusUnits(lat);
+  const floor = localCameraFloor(lat, lon);
+  zoomTarget = Math.min(MAX_CAMERA_DISTANCE, Math.max(floor, zoomTarget));
+  const step = easedAltitudeDistance(
+    camera.position.length(),
+    zoomTarget,
+    surface,
+    delta
+  );
+  camera.position.normalize().multiplyScalar(step.distance);
+  camera.lookAt(0, 0, 0);
+  if (step.settled) zoomTarget = null;
+}
+
+/** Keep the camera above the ground under it, and fit the depth planes to that. */
+function enforceCameraLimits(): void {
+  const { lat, lon } = vector3ToLatLng(camera.position);
+  const floor = localCameraFloor(lat, lon);
+  const length = camera.position.length();
+  const next = Math.min(MAX_CAMERA_DISTANCE, Math.max(floor, length));
+  if (Math.abs(next - length) > 1e-8) {
+    camera.position.normalize().multiplyScalar(next);
+    camera.lookAt(0, 0, 0);
+  }
+  const planes = clipPlanes(
+    camera.position.length(),
+    ellipsoidRadiusUnits(lat)
+  );
+  if (camera.near !== planes.near || camera.far !== planes.far) {
+    camera.near = planes.near;
+    camera.far = planes.far;
+    camera.updateProjectionMatrix();
+  }
+}
+
+// --- Keyboard aim readout -----------------------------------------------------
+// A pointer aims with a cursor, and the hover readout follows it. The keyboard
+// has no cursor: it turns the globe under a fixed aim at the middle of the
+// view, which is the point Enter charts. That point was neither drawn nor
+// named, so arrowing the globe reported nothing at all — the only way to learn
+// where you had arrived was to press Enter and read the probe that opened, and
+// a screen-reader user got silence either way. The reticle marks the point, the
+// same readout the cursor gets names it, and the live region says it out loud
+// once the turning stops.
+let aimSpeechTimer: ReturnType<typeof setTimeout> | undefined;
+
+const syncKeyboardAim = (moved: boolean): void => {
+  // `:focus-visible`, not `:focus` — clicking the globe focuses it too, and a
+  // user who is already pointing does not need a second aim on screen.
+  if (!inspector || !canvas.matches(":focus-visible")) {
+    clearTimeout(aimSpeechTimer);
+    inspector?.clearAim();
+    reticleEl?.classList.remove("is-visible");
+    tooltipEl?.classList.remove("is-aimed");
+    return;
+  }
+  inspector.aimAt(vector3ToLatLng(camera.position));
+  reticleEl?.classList.add("is-visible");
+  tooltipEl?.classList.add("is-aimed");
+  if (!moved) return;
+  // Announce where the globe came to rest, not every step of getting there: a
+  // held arrow key, or a globe coasting after a flick, would otherwise narrate
+  // dozens of points the user was only passing over.
+  clearTimeout(aimSpeechTimer);
+  aimSpeechTimer = setTimeout(() => {
+    if (!inspector || !canvas.matches(":focus-visible")) return;
+    // `nameAim`, not `describe`: a screen-reader user arrowing a volcano into
+    // the middle of the view must hear that it is a volcano, not its latitude.
+    announcer.announce(inspector.nameAim(vector3ToLatLng(camera.position)));
+  }, 700);
+};
+
+canvas.addEventListener("focus", () => syncKeyboardAim(false));
+canvas.addEventListener("blur", () => syncKeyboardAim(false));
+// The arrow keys are not the only thing that moves the camera: a fly-to from
+// search, or a drag begun while the canvas still holds keyboard focus, would
+// otherwise leave the readout naming a point that has left the middle of view.
+controls.addEventListener("change", () => syncKeyboardAim(true));
+
+// --- Keyboard globe navigation ------------------------------------------------
+// The canvas has declared `role="application"` since the first commit, which
+// tells a screen reader to stop intercepting keys and hand them to the app —
+// a promise that only makes sense if the app answers them. It answered none:
+// there was no key handler on the canvas at all, and no tabindex, so the globe
+// was the one control in the app a keyboard could not reach. Arrow keys turn
+// it, +/- zoom, and (below, with the probe) Enter charts the point in view.
+// OrbitControls' own key bindings are not an option: they pan a target this
+// app pins to the globe's centre, and `enablePan` is off for that reason.
+canvas.addEventListener("keydown", (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return; // leave browser chords alone
+  // A search flight disables the controls, but an arrow key takes the camera
+  // back mid-flight (below), just as a press does. The region drawer disables
+  // them too, but only so a *drag* sweeps a box instead of rotating; the arrows
+  // are still the way its keyboard corners are aimed, so they keep working
+  // while it is armed.
+  if (!controls.enabled && !flyer.isFlying && !regionDrawer?.active) return;
+  const subpoint = vector3ToLatLng(camera.position);
+  const next = stepGlobeView(
+    { ...subpoint, distance: camera.position.length() },
+    e.key,
+    {
+      min: localCameraFloor(subpoint.lat, subpoint.lon),
+      max: MAX_CAMERA_DISTANCE,
+    }
+  );
+  if (!next) return;
+  e.preventDefault(); // arrows would otherwise scroll the page
+  endFlight(); // step from wherever the flight or coast had got to
+  momentum.stop();
+  zoomTarget = null; // a key zoom lands on its own step, not a leftover glide
+  camera.position
+    .copy(latLngToVector3(next.lat, next.lon, 1))
+    .multiplyScalar(next.distance);
+  camera.lookAt(0, 0, 0);
+  controls.update(); // adopt the new position and fire `change` → hash sync
+  // With a corner already down, the box rubber-bands to the new subpoint —
+  // the keyboard's version of dragging with the button held.
+  regionDrawer?.stretchTo({ lat: next.lat, lon: next.lon });
+  // Draw mode holds the controls disabled, so `update()` above may not raise a
+  // `change`; re-aim here so the readout tracks the keys either way.
+  syncKeyboardAim(true);
+});
+
+// --- Shareable view state (URL hash) ------------------------------------------
+// The hash always reflects the current view, so the address bar is a citable,
+// reproducible link at any moment. Writes are debounced and use replaceState
+// to avoid spamming session history while dragging.
+// An open probe's location, mirrored into the shareable hash — a link then
+// reproduces the analysis, not just the view. Maintained by the probe section.
+let probeShare: ProbeShare | undefined;
+// The searched place, mirrored into the hash. Set when a search lands and
+// when a shared link restores one; cleared when a different analysis replaces
+// the place chart. `placeGeneration` drops a lookup that resolves after the
+// reader has already moved on.
+let sharedPlace: SharedPlace | undefined = initialView.place;
+let sharedQuery: string | undefined = initialView.query;
+let placeGeneration = 0;
+
+function adoptSearchResult(result: GeoResult, fromUser: boolean): void {
+  const place = sharedPlaceFrom(result);
+  if (!place) return;
+  if (fromUser) placeGeneration += 1;
+  sharedPlace = place;
+  // A restore already carries the sender's query. Only a new search replaces it.
+  if (fromUser || sharedQuery === undefined) sharedQuery = place.name;
+}
+
+function clearSharedSearch(): void {
+  placeGeneration += 1;
+  sharedPlace = undefined;
+  sharedQuery = undefined;
+}
+
+function resultFromSharedPlace(
+  place: SharedPlace,
+  geometry: GeoGeometry | null
+): GeoResult {
+  return {
+    name: place.name,
+    displayName: place.name,
+    lat: place.lat,
+    lon: place.lon,
+    type: "",
+    category: "",
+    boundingBox: place.bbox ?? null,
+    geometry,
+    osm: place.osm,
+  };
+}
+
+function currentViewState() {
+  const subpoint = vector3ToLatLng(camera.position);
+  return {
+    story: storyCard?.activeId,
+    layer: currentLayer,
+    month: months[currentIndex],
+    camera: {
+      lat: subpoint.lat,
+      lon: subpoint.lon,
+      alt: camera.position.length() - EARTH_RADIUS,
+    },
+    probe: probeShare,
+    pin: compare.active ? compare.pinned : undefined,
+    place: sharedPlace,
+    query: sharedQuery,
+  };
+}
+
+let hashTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleHashSync(): void {
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(() => {
+    history.replaceState(null, "", `#${encodeViewState(currentViewState())}`);
+    saveSession();
+  }, 400);
+}
+
+/** The shareable deep link for the current view — the reproduction URL that
+ * goes on the clipboard and into every CSV export's provenance header. */
+function currentShareUrl(): string {
+  return `${location.origin}${location.pathname}#${encodeViewState(currentViewState())}`;
+}
+
+const shareEl = document.querySelector<HTMLElement>("#share");
+if (shareEl) {
+  new ShareButton(shareEl, currentShareUrl, (message) =>
+    announcer.announce(message)
+  );
+}
+
+// --- Search + fly-to --------------------------------------------------------
+// Vestibular safety: users who set prefers-reduced-motion get an instant
+// reposition instead of an animated flight, and no coast after a drag (CSS
+// already respects it).
+const reduceMotion = window.matchMedia(
+  "(prefers-reduced-motion: reduce)"
+).matches;
+const flyer = new CameraFlyer(camera, controls, reduceMotion);
+controls.addEventListener("change", scheduleHashSync);
+
+// Error 404 · Earth System Trend Detective bridge
+trendBridge = new TrendDetectiveBridge({
+  camera,
+  controls,
+  flyer,
+  initialLayer: currentLayer,
+  months,
+  initialIndex: currentIndex,
+  onSwitchLayer: (id) => switchLayer(id),
+  onStepMonth: (index) => {
+    currentIndex = index;
+    refreshGlobe();
+    scheduleHashSync();
+  },
+  onPlayToggle: () => {
+    timeSlider?.toggle();
+  },
+  onToggleOverlay: (id, on) => {
+    const overlay = overlays.find((o) => o.id === id);
+    if (overlay) void toggleOverlay(overlay, on, true);
+  },
+  isOverlayOn: (id) => overlayState.has(id),
+  onShare: () => {
+    document.querySelector<HTMLButtonElement>(".share-button")?.click();
+  }
+});
+
+// A flight used to hold the controls off for its full 1.4 s, so a press on the
+// globe mid-flight did nothing and the user waited out an animation they had
+// already changed their mind about. A press or wheel on the globe now takes
+// the camera back from wherever the flight has got to, and the gesture carries
+// on. This listens in the capture phase on `window` so it runs before
+// OrbitControls' own canvas listeners, which would otherwise drop the event
+// while the controls are still disabled.
+const takeBackCamera = (e: Event): void => {
+  if (e.target === canvas) endFlight();
+};
+// An armed region drawer owns the drag, so a flight that ends (landing or
+// taken back) must leave the controls off rather than hand the drag back to
+// OrbitControls and have it rotate the globe under the box being drawn.
+function endFlight(): void {
+  flyer.cancel();
+  if (regionDrawer?.active) controls.enabled = false;
+}
+window.addEventListener("pointerdown", takeBackCamera, { capture: true });
+window.addEventListener("wheel", takeBackCamera, {
+  capture: true,
+  passive: true,
+});
+// OrbitControls' own zoom is off: it multiplies distance to the centre, which
+// barely moves the picture once the camera is near the surface. This listener
+// multiplies altitude instead, including the ctrl+wheel a trackpad pinch sends.
+canvas.addEventListener(
+  "wheel",
+  (e) => {
+    e.preventDefault();
+    if (!controls.enabled && !flyer.isFlying) return;
+    endFlight();
+    if (!controls.enabled) return;
+    momentum.stop();
+    queueAltitudeZoom(wheelAltitudeFactor(e.deltaY, e.deltaMode, e.ctrlKey));
+  },
+  { passive: false }
+);
+
+// Momentum after a drag (see GlobeMomentum). One pointer is a drag that can be
+// thrown; a second finger makes it a pinch, which never throws. Moves and lifts
+// are heard on `window`, because a release can land on the HUD over the canvas.
+const momentum = new GlobeMomentum(camera, controls, canvas, !reduceMotion);
+const globePointers = new Set<number>();
+const pinchPoints = new Map<number, { x: number; y: number }>();
+let pinchSpan = 0;
+
+function pinchSpanOf(points: Map<number, { x: number; y: number }>): number {
+  const pts = [...points.values()];
+  const a = pts[0];
+  const b = pts[1];
+  if (!a || !b) return 0;
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  globePointers.add(e.pointerId);
+  pinchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (globePointers.size === 1) momentum.grab(e);
+  else {
+    momentum.stop();
+    pinchSpan = pinchSpanOf(pinchPoints);
+  }
+});
+window.addEventListener("pointermove", (e) => {
+  if (pinchPoints.has(e.pointerId)) {
+    pinchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }
+  if (globePointers.size >= 2 && pinchPoints.size >= 2) {
+    const next = pinchSpanOf(pinchPoints);
+    if (pinchSpan > 0 && next > 0 && (controls.enabled || flyer.isFlying)) {
+      endFlight();
+      if (controls.enabled) {
+        // The fingers own the altitude. A leftover wheel glide would
+        // drag the ground away from the pinch.
+        zoomTarget = null;
+        applyAltitudeZoom(pinchAltitudeFactor(pinchSpan, next));
+      }
+    }
+    pinchSpan = next;
+    return;
+  }
+  if (globePointers.size === 1 && globePointers.has(e.pointerId)) {
+    momentum.move(e);
+  }
+});
+window.addEventListener("pointerup", (e) => {
+  pinchPoints.delete(e.pointerId);
+  if (globePointers.delete(e.pointerId) && globePointers.size === 0) {
+    momentum.release(e);
+  }
+  pinchSpan = pinchSpanOf(pinchPoints);
+});
+window.addEventListener("pointercancel", (e) => {
+  pinchPoints.delete(e.pointerId);
+  if (globePointers.delete(e.pointerId)) momentum.stop();
+  pinchSpan = pinchSpanOf(pinchPoints);
+});
+
+// Assigned once the stories block builds the card. Search can ask for a story
+// before that block runs; the call itself is always later, after boot.
+let openStory: (storyId: string) => void = () => {};
+let focusSearch: (() => void) | undefined;
+
+function rememberSearch(hit: SearchHit): void {
+  const action =
+    hit.data.type === "place" ? { ...hit.data, geometry: null } : hit.data;
+  recentSearches = [
+    { title: hit.title, subtitle: hit.subtitle, action },
+    ...recentSearches.filter(
+      (entry) => entry.title !== hit.title || entry.action.type !== action.type
+    ),
+  ].slice(0, 6);
+  saveSession();
+}
+
+/**
+ * Open an event that is not a story: the layer that shows it, a flight to
+ * its place, and its month on the timeline. Stories go through the card's
+ * play() instead, which is the same flight plus the curated playback.
+ */
+function seekEvent(event: EarthEvent): void {
+  if (currentLayer !== event.layer) {
+    switchLayer(event.layer);
+  } else {
+    storyCard?.dismiss();
+    closeProbe?.();
+    compareControls?.exit();
+  }
+  endFlight();
+  const box: [number, number, number, number] | null = event.bbox
+    ? [event.bbox[0], event.bbox[1], event.bbox[2], event.bbox[3]]
+    : null;
+  // Framing stays out of the first-paint chunk, same as a place pick.
+  void import("./lib/placeFrame").then(({ flyToDistance }) => {
+    flyer.flyTo(event.lat, event.lon, flyToDistance(box));
+  });
+  timeSlider?.goTo(nearestMonthIndex(months, event.month));
+  scheduleHashSync();
+}
+
+// Replaced inside the stories block so a story-backed event plays the card.
+let presentEvent = (event: EarthEvent): void => {
+  seekEvent(event);
+};
+
+if (searchEl) {
+  void import("./ui/mountSearch").then(
+    ({ mountSearch }) => {
+      const mounted = mountSearch(
+        searchEl,
+        (message) => announcer.announce(message),
+        {
+          onPlace: (result) => {
+            dismissPlaceCompare();
+            adoptSearchResult(result, true);
+            // A search flies to the place. It does not chart the record:
+            // that sample is hundreds of months and pauses the basemap for
+            // as long as it runs, so the arrival was a coarse tile on a
+            // black sky. The chart stays a click, a drawn box, or Enter.
+            closeProbe?.();
+            // Framing stays out of the first-paint chunk.
+            void import("./lib/placeFrame").then(
+              ({
+                flyToDistance,
+                longitudesInGeometry,
+                placePickMonthIndex,
+              }) => {
+                const monthIndex = placePickMonthIndex(
+                  months.length,
+                  LAYERS[currentLayer].static === true
+                );
+                if (monthIndex !== null) timeSlider?.seek(monthIndex);
+                flyer.flyTo(
+                  result.lat,
+                  result.lon,
+                  flyToDistance(
+                    result.boundingBox,
+                    longitudesInGeometry(result.geometry)
+                  )
+                );
+                highlight.show({
+                  lat: result.lat,
+                  lon: result.lon,
+                  geometry: result.geometry,
+                });
+                // A search result can be a postcode, city, state, or country.
+                // Nominatim returns its polygon when one is mapped, and
+                // LocationHighlight traces that geometry. A local hit has no
+                // outline: the highlight is a pin, and the place panel stays shut
+                // because it needs an area. Do not drape the old fixed study patch.
+                studyRegion.hide();
+                studyChip?.hide();
+                runPlaceInsights(result);
+              }
+            );
+          },
+          onLayer: (id) => switchLayer(id),
+          onMonth: (year, month) => {
+            timeSlider?.seek(nearestMonthIndex(months, { year, month }));
+          },
+          onStory: (storyId) => {
+            dismissPlaceCompare();
+            openStory(storyId);
+          },
+          onHotspot: (hotspot) => {
+            dismissPlaceCompare();
+            if (
+              Object.hasOwn(LAYERS, hotspot.layerId) &&
+              hotspot.layerId !== currentLayer
+            ) {
+              switchLayer(hotspot.layerId as LayerId);
+            }
+            // Same chunk as a place pick: framing stays out of first paint.
+            void import("./lib/placeFrame").then(
+              ({ placePickMonthIndex, flyToDistance }) => {
+                const monthIndex = placePickMonthIndex(
+                  months.length,
+                  LAYERS[currentLayer].static === true
+                );
+                if (monthIndex !== null) timeSlider?.seek(monthIndex);
+                const pad = 0.4;
+                flyer.flyTo(
+                  hotspot.lat,
+                  hotspot.lon,
+                  flyToDistance([
+                    hotspot.lat - pad,
+                    hotspot.lat + pad,
+                    hotspot.lon - pad,
+                    hotspot.lon + pad,
+                  ])
+                );
+              }
+            );
+            highlight.show({
+              lat: hotspot.lat,
+              lon: hotspot.lon,
+              geometry: null,
+            });
+            studyRegion.hide();
+            studyChip?.hide();
+            // No outline, so the place panel closes rather than sampling a point.
+            void placeInsightsModule?.then(
+              (m) =>
+                m.runPlaceInsights(
+                  {
+                    name: hotspot.name,
+                    displayName: hotspot.name,
+                    lat: hotspot.lat,
+                    lon: hotspot.lon,
+                    type: "",
+                    category: "",
+                    boundingBox: null,
+                    geometry: null,
+                  },
+                  {
+                    activeLayer: currentLayer,
+                    onSelectLayer: (id) => {
+                      if (id !== currentLayer) switchLayer(id);
+                    },
+                  }
+                ),
+              () => undefined
+            );
+          },
+          onRemember: (hit) => rememberSearch(hit),
+          recent: () => recentSearches,
+          previewChange: (geometry, lat, lon, signal) => {
+            // Same promise as the place panel. A rejected fetch stays held,
+            // so highlighting another area does not request the chunk again.
+            placeInsightsModule ??= import("./place/placeInsightsController");
+            return placeInsightsModule.then(
+              (m) => {
+                if (signal.aborted) return null;
+                return m.previewPlaceChange(geometry, lat, lon, signal);
+              },
+              () => null
+            );
+          },
+          onEvent: (eventId) => {
+            void import("./lib/eventSearch").then(({ eventFromId }) => {
+              const event = eventFromId(eventId);
+              if (event) presentEvent(event);
+            });
+          },
+          onThenNow: (pick) => {
+            void import("./lib/openComparisons").then(
+              ({ openThenNow }) => {
+                void openThenNow(pick, comparisonHost());
+              },
+              (err) =>
+                console.warn("RoamingEye: comparison failed to load", err)
+            );
+          },
+          onPlaceCompare: (pick) => {
+            void import("./lib/openComparisons").then(
+              ({ openPlaceCompare }) => {
+                void openPlaceCompare(pick, comparisonHost());
+              },
+              (err) =>
+                console.warn("RoamingEye: comparison failed to load", err)
+            );
+          },
+          layer: () => currentLayer,
+        }
+      );
+      focusSearch = () => mounted.focus();
+    },
+    (err) => console.warn("RoamingEye: search failed to load", err)
+  );
+}
+
+// "/" focuses search unless the user is already typing or the shortcuts
+// overlay is up. Ctrl/Cmd+K focuses it from anywhere, including a text field.
+document.addEventListener("keydown", (e) => {
+  const meta = e.metaKey || e.ctrlKey;
+  const slash = e.key === "/" && !meta && !e.altKey;
+  const palette = meta && !e.altKey && e.key.toLowerCase() === "k";
+  if (!slash && !palette) return;
+  if (slash) {
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    if (document.querySelector("#shortcuts-page.is-open")) return;
+  }
+  e.preventDefault();
+  focusSearch?.();
+});
+
+// --- Comparison mode (A/B of two months) ---------------------------------------
+// Scrub to the "before" month, hit Compare to pin it on the left; the timeline
+// keeps driving the right side. Rendered as two scissored passes per frame
+// with the globe texture swapped (see CompareController).
+const compare = new CompareController(
+  earth.material,
+  renderer.capabilities.getMaxAnisotropy(),
+  (ready) => {
+    setStatus(ready ? "" : "Comparison imagery failed to load");
+    // The second month only belongs in the provenance line once its imagery is
+    // actually drawn — and a load failure drops the comparison, so the line
+    // falls back to the one month still on screen.
+    updateProvenance();
+  }
+);
+pinnedComparisonMonth = () => (compare.showing ? compare.pinned : undefined);
+
+if (compareEl && compareDividerEl) {
+  compareControls = new CompareControls(
+    compareEl,
+    compareDividerEl,
+    {
+      onEnable: () => {
+        dismissPlaceCompare();
+        const layer = LAYERS[currentLayer];
+        if (layer.static) return false; // one image regardless of month
+        compare.enable(layer, months[currentIndex]);
+        compareControls?.showDivider(
+          layer,
+          months[currentIndex],
+          compare.split
+        );
+        compareControls?.setLiveMonth(layer, months[currentIndex]);
+        scheduleHashSync();
+        return true;
+      },
+      onDisable: () => {
+        compare.disable();
+        updateProvenance();
+        scheduleHashSync();
+      },
+      onSplitChange: (fraction) => {
+        compare.split = fraction;
+      },
+    },
+    (message) => announcer.announce(message)
+  );
+
+  // Restore a shared comparison: the pinned month from the URL, snapped to a
+  // slot the active layer actually publishes, when its record covers it.
+  const pin = initialView.pin;
+  if (pin && !LAYERS[currentLayer].static) {
+    const pinned = resolvePinnedMonth(months, pin);
+    if (pinned) {
+      compare.enable(LAYERS[currentLayer], pinned);
+      compareControls.restore(LAYERS[currentLayer], pinned, compare.split);
+      compareControls.setLiveMonth(LAYERS[currentLayer], months[currentIndex]);
+    }
+  }
+}
+
+function comparisonHost() {
+  return {
+    announce: (message: string) => announcer.announce(message),
+    layer: () => currentLayer,
+    months: () => months,
+    prepareLayer(id: LayerId) {
+      closeProbe?.();
+      dismissIntro();
+      dismissPlaceCompare();
+      if (currentLayer !== id) switchLayer(id);
+      else {
+        storyCard?.dismiss();
+        compareControls?.exit();
+      }
+    },
+    seek: (index: number) => {
+      // setIndex does not tell the slider listener. That listener closes a
+      // place comparison, which is right for a person scrubbing and wrong
+      // for the comparison moving to its own month.
+      const clamped = Math.min(months.length - 1, Math.max(0, index));
+      currentIndex = clamped;
+      timeSlider?.setIndex(clamped);
+      refreshGlobe();
+      ensureWarm(clamped);
+      if (studyRegion.active && !playing) {
+        studyRegion.setMonth(months[currentIndex]);
+      }
+      compareControls?.setLiveMonth(LAYERS[currentLayer], months[currentIndex]);
+      scheduleHashSync();
+    },
+    fly: (lat: number, lon: number, distance: number) =>
+      flyer.flyTo(lat, lon, distance),
+    endFlight: () => endFlight(),
+    showHighlight: (result: GeoResult) =>
+      highlight.show({
+        lat: result.lat,
+        lon: result.lon,
+        geometry: result.geometry,
+      }),
+    clearHighlight: () => highlight.clear(),
+    attach: (object: object) => {
+      scene.add(object as THREE.Object3D);
+    },
+    hideStudy: () => {
+      studyRegion.hide();
+      studyChip?.hide();
+    },
+    enableMonthCompare: (earlier: YearMonth) => {
+      compare.enable(LAYERS[currentLayer], earlier);
+      compareControls?.restore(LAYERS[currentLayer], earlier, compare.split);
+      compareControls?.setLiveMonth(LAYERS[currentLayer], months[currentIndex]);
+    },
+    clearSharedSearch: () => clearSharedSearch(),
+    scheduleHashSync: () => scheduleHashSync(),
+  };
+}
+
+// --- Point probe (click → time series) ----------------------------------------
+// Click anywhere on the globe to chart the active layer's approximate value at
+// that point across its full published record, with a provenance-stamped CSV.
+// Values come from inverting the layer's colormap on the same preview imagery
+// the scrubber prefetches (see lib/probe.ts) — labeled approximate throughout.
+if (probeEl) {
+  const PROBE_IMAGE = { width: 1024, height: 512 }; // = preview size → HTTP cache hits
+  let probeAbort: AbortController | undefined;
+  let probeTarget: { lat: number; lon: number } | undefined;
+
+  // The basemap's tile queue shares the browser with this sample. Hold it
+  // for the life of the request, and only the sample that still owns the
+  // panel may release it — a newer probe has already taken the hold.
+  const whileSampling = <T>(
+    abort: AbortController,
+    work: Promise<T>
+  ): Promise<T> => {
+    setTerrainSampling(true);
+    const release = (): void => {
+      if (probeAbort === abort) setTerrainSampling(false);
+    };
+    return work.then(
+      (value) => {
+        release();
+        return value;
+      },
+      (err: unknown) => {
+        release();
+        throw err;
+      }
+    );
+  };
+
+  // Drawn study regions (the #26 flagship): arm via the "Draw region"
+  // button, drag a box on the globe, and its monthly mean charts in the
+  // probe panel. OrbitControls pauses while the drawer owns the drag.
+  const drawEl = document.querySelector<HTMLElement>("#draw");
+  let regionButton: RegionButton | undefined;
+  const drawer = new RegionDrawer(canvas, camera, earth, {
+    onModeChange: (armed) => {
+      controls.enabled = !armed;
+      regionButton?.setActive(armed);
+      // Naming both gestures: the button that arms this is an ordinary button,
+      // so a keyboard reaches draw mode perfectly well, and used to land on an
+      // instruction it could not carry out.
+      setStatus(armed ? "Drag a box, or press Enter at two corners" : "");
+      // Every gesture this mode accepts happens on the globe, and arming it
+      // leaves focus on the button — so hand focus over, the way opening a
+      // dialog does. Disarming leaves focus alone: Escape should not yank it
+      // away from whatever the user moved on to.
+      if (armed) canvas.focus();
+    },
+    onComplete: (bounds) => runRegionProbe(bounds),
+  });
+  regionDrawer = drawer;
+  scene.add(drawer.object);
+  if (drawEl) {
+    regionButton = new RegionButton(drawEl, (on) => drawer.setArmed(on));
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") drawer.setArmed(false);
+  });
+
+  if (trendBridge) {
+    trendBridge.setCompareHandler(() => {
+      document.querySelector<HTMLButtonElement>(".compare-button")?.click();
+    });
+    trendBridge.setDrawHandler(() => {
+      drawer.setArmed(!drawer.active);
+    });
+    trendBridge.setThenNowHandler((card) => {
+      if (card.layer && card.layer !== currentLayer) {
+        switchLayer(card.layer);
+      }
+      for (const id of card.overlays ?? []) {
+        const overlay = overlays.find((o) => o.id === id);
+        if (overlay) void toggleOverlay(overlay, true, true);
+      }
+      document.querySelector<HTMLButtonElement>(".compare-button")?.click();
+    });
+    trendBridge.setClipHandler((_card) => {
+      document.querySelector<HTMLButtonElement>("#clip-link")?.click();
+    });
+  }
+
+  const panel = new ProbePanel(
+    probeEl,
+    () => {
+      probeAbort?.abort();
+      probeShare = undefined;
+      chartedPlace = undefined;
+      // The reader closed the chart, so the link should stop reproducing it.
+      // A layer switch closes the panel too, but that path does not come
+      // through here — it reopens the same place on the new layer.
+      clearSharedSearch();
+      drawer.clear();
+      scheduleHashSync();
+    },
+    // Mode toggle (point ↔ area) re-samples the same location.
+    () => {
+      if (probeTarget) runProbe(probeTarget.lat, probeTarget.lon);
+    },
+    (message) => announcer.announce(message)
+  );
+  const sampler = new ProbeSampler(PROBE_IMAGE);
+  closeProbe = () => {
+    probeAbort?.abort();
+    probeShare = undefined;
+    chartedPlace = undefined;
+    drawer.setArmed(false);
+    drawer.clear();
+    panel.close();
+  };
+
+  /**
+   * The on-demand chunk leg of a land-cover read, tagged so its failure can be
+   * told apart from the sampler fetch beside it.
+   *
+   * Both legs of the `Promise.all` below can fail, but they are not the same
+   * failure. The sampler fetch is an ordinary request a second probe re-issues
+   * (measured: 2 attempts, then 4), so "check the connection and retry" is
+   * honest for it. The chunk is a dynamic import. Chromium 156+ does not cache
+   * a failed module fetch, so a later probe re-requests it there; Safari and
+   * Firefox still keep the rejection for the life of the page, and a second
+   * probe re-requests nothing. Reload is the remedy that works in every
+   * browser, which is what the chunk message names.
+   *
+   * When both legs fail, `Promise.all` rejects with whichever lost the race;
+   * either message then describes a real failure, and the sampler's advice is
+   * the cheaper first move.
+   */
+  class ChunkLoadError extends Error {}
+
+  const onDemand = <T>(chunk: Promise<T>): Promise<T> =>
+    chunk.catch((err) => {
+      throw new ChunkLoadError(String(err));
+    });
+
+  /**
+   * Annual maps a land-cover point read compares, the probed year included.
+   *
+   * MCD12Q1 publishes one map a year, so a short trailing window costs a few
+   * requests rather than a per-month series, and four maps is the shortest
+   * window that can tell a class that held from one the maps disagree on.
+   */
+  const LAND_COVER_TENURE_WINDOW = 4;
+
+  /** Published annual entries immediately before `ym`, oldest first. */
+  const landCoverTenureHistory = (
+    layer: LayerConfig,
+    ym: YearMonth
+  ): YearMonth[] => {
+    // Read from the layer record, never a hardcoded span: the published years
+    // move whenever MCD12Q1 gains a map or declares one unpublished.
+    const record = monthRangeForLayer(layer);
+    const index = record.findIndex(
+      (entry) => entry.year === ym.year && entry.month === ym.month
+    );
+    const end = index === -1 ? record.length : index;
+    return record.slice(Math.max(0, end - (LAND_COVER_TENURE_WINDOW - 1)), end);
+  };
+
+  /**
+   * Read the IGBP class at a point on the class-coded land-cover layer.
+   *
+   * Class codes are categorical, so the pixels are decoded through the source
+   * palette and counted — never inverted through a colormap or averaged. The
+   * panel reports the most frequent sampled class with its pixel count and the
+   * cited MCD12Q1 record it came from.
+   */
+  const readLandCoverClass = (
+    layer: LayerConfig,
+    ym: YearMonth,
+    lat: number,
+    lon: number,
+    mode: "point" | "area",
+    abort: AbortController
+  ): void => {
+    panel.setStatus("Reading land-cover class…");
+    // The class tables and decoder load on demand: only this one layer needs
+    // them, and the entry chunk's budget is shared with everything else.
+    Promise.all([
+      sampler.sampleRenderedPixels(layer, ym, lat, lon, {
+        mode,
+        signal: abort.signal,
+      }),
+      onDemand(import("./probe/landCoverClassRead")),
+    ])
+      .then(([pixels, { readLandCoverClassText, landCoverTenureClause }]) => {
+        if (abort.signal.aborted) return;
+        const reading = readLandCoverClassText(pixels, ym.year);
+        panel.setStatus(reading);
+
+        // Earlier maps are a second, failure-tolerant pass. The class the user
+        // asked for is already on screen, so a year that will not load drops
+        // out of the tenure count instead of replacing the reading with an
+        // error — and the clause is appended to that same text, so arriving
+        // late cannot clobber it.
+        const history = landCoverTenureHistory(layer, ym);
+        if (history.length === 0) return;
+        void Promise.all(
+          history.map((entry) =>
+            sampler
+              .sampleRenderedPixels(layer, entry, lat, lon, {
+                mode,
+                signal: abort.signal,
+              })
+              .then((earlier) => ({ year: entry.year, pixels: earlier }))
+              .catch(() => null)
+          )
+        ).then((earlier) => {
+          if (abort.signal.aborted) return;
+          const clause = landCoverTenureClause([
+            ...earlier.filter((entry) => entry !== null),
+            { year: ym.year, pixels },
+          ]);
+          if (clause !== null) panel.setStatus(`${reading} ${clause}`);
+        });
+      })
+      .catch((err) => {
+        if (isAbortError(err)) return;
+        console.warn("RoamingEye: land-cover class read failed", err);
+        panel.setStatus(
+          err instanceof ChunkLoadError
+            ? "Reading the land-cover class failed — reload the page to try again."
+            : "Reading the land-cover class failed — check the connection and retry."
+        );
+      });
+  };
+
+  // Same on-demand class tables as the point read, over the drawn box: a
+  // region covers many source pixels, so the honest answer is the mix of
+  // classes rather than one label.
+  const readLandCoverRegion = (
+    layer: LayerConfig,
+    ym: YearMonth,
+    bounds: Bounds,
+    abort: AbortController
+  ): void => {
+    panel.setStatus("Reading land-cover classes…");
+    Promise.all([
+      sampler.sampleRenderedRegionPixels(layer, ym, bounds, {
+        signal: abort.signal,
+      }),
+      onDemand(import("./probe/landCoverRegionRead")),
+    ])
+      .then(([{ pixels, sampling }, { readLandCoverRegionText }]) => {
+        if (abort.signal.aborted) return;
+        panel.setStatus(readLandCoverRegionText(pixels, ym.year, sampling));
+      })
+      .catch((err) => {
+        if (isAbortError(err)) return;
+        console.warn("RoamingEye: land-cover region read failed", err);
+        panel.setStatus(
+          err instanceof ChunkLoadError
+            ? "Reading the land-cover classes failed — reload the page to try again."
+            : "Reading the land-cover classes failed — check the connection and retry."
+        );
+      });
+  };
+
+  const runProbe = (lat: number, lon: number): void => {
+    const layer = LAYERS[currentLayer];
+    const mode = panel.mode;
+    probeTarget = { lat, lon };
+    chartedPlace = undefined; // a click replaces a place chart
+    // The mode goes into the share hash with the coordinates: it selects which
+    // statistic the series reports, and the CSV this same view stamps a
+    // `view_url` into names that statistic in its own header.
+    probeShare = { kind: "point", lat, lon, mode };
+    drawer.clear(); // a point probe replaces any drawn-region chart
+    scheduleHashSync();
+    const where =
+      mode === "area"
+        ? `~1° area around ${formatLatLng({ lat, lon })}`
+        : formatLatLng({ lat, lon });
+    // MOD10CM maps snow from reflected sunlight, so a high-latitude record has
+    // months it cannot have observed at all. Name them before the chart fills
+    // in, so a polar-winter gap — or a filled dark-month value — is not read
+    // as a snow measurement. Null, and free, everywhere equatorward of 63.3°.
+    const darkness = layer.id === "snow" ? snowIlluminationNote(lat) : null;
+    // The panel yields the space on the way IN only — see foldHudForOverlay.
+    const probeWasOpen = panel.isOpen;
+    panel.open(
+      plainLayerName(layer.id),
+      darkness ? `${where} · ${darkness}` : where
+    );
+    if (!probeWasOpen) foldHudForOverlay?.();
+    panel.setModeToggleVisible(true);
+    if (layer.static) {
+      panel.setStatus(
+        "This layer has no time dimension — pick a monthly layer to chart a series."
+      );
+      return;
+    }
+    if (layer.categorical) {
+      // No numeric series to chart — but the class at the point is a real,
+      // citable observation, so read it instead of dead-ending. Only the IGBP
+      // layer has a decodable palette here; any other class-coded layer keeps
+      // the honest "nothing to chart" message rather than being read through
+      // a palette that does not describe it.
+      if (layer.id === "landcover") {
+        probeAbort?.abort();
+        const abort = (probeAbort = new AbortController());
+        readLandCoverClass(layer, months[currentIndex], lat, lon, mode, abort);
+        return;
+      }
+      panel.setStatus(
+        "This layer shows classes, not a measurement — there is no numeric series to chart."
+      );
+      return;
+    }
+
+    probeAbort?.abort();
+    const abort = (probeAbort = new AbortController());
+    const probeMonths = monthRangeForLayer(layer);
+    const scale = PROBE_SCALES[layer.id];
+    panel.beginSeries(probeMonths, scale, { layerId: layer.id, latitude: lat });
+
+    let lastDraw = 0;
+    whileSampling(
+      abort,
+      sampler.sample(layer, probeMonths, lat, lon, {
+        mode,
+        signal: abort.signal,
+        onValue: (index, value) => panel.setValue(index, value),
+        onProgress: (done, total) => {
+          // Silent: the counter ticks once per month, and announcing every
+          // tick buries the result behind a queue of them. See setStatus.
+          panel.setStatus(`Sampling ${done}/${total} months…`, {
+            announce: false,
+            busy: true,
+          });
+          const now = performance.now();
+          if (now - lastDraw > 150 || done === total) {
+            lastDraw = now;
+            panel.refresh();
+          }
+        },
+      })
+    )
+      .then(({ values, validFractions, transportFailureMonths }) => {
+        if (abort.signal.aborted) return;
+        // An area mean over a coastal box averages only the pixels that
+        // carried SST; say what share of the box those were. A point probe
+        // has no share to report, so it passes none and stays silent. The
+        // charted series comes too: a month the box returned nothing for
+        // reports a zero share, and the mean never saw it.
+        const sstSupportNote = averagedSstSupportNote(
+          layer.id,
+          "sampled-area",
+          values,
+          mode === "area" ? validFractions : null
+        );
+        // The same question for the vegetation indices, whose undrawn pixels
+        // are their lowest-index ones rather than a domain boundary — so the
+        // share qualifies the direction of the mean, not just its extent.
+        // Both layers pass through the same gate: no shares, no clause.
+        // And the same question along the OTHER axis, which no vegetation mode
+        // stated: that transparent below-ramp band drops whole MONTHS out of
+        // the series too, so the statistics beside the chart cover the drawn
+        // months alone — and because the surfaces it excludes are the
+        // lowest-index ones, the mean reads high and the min is the lowest
+        // drawn value rather than the record's. The share clause above already
+        // names the mechanism for an averaged footprint, so this defers to it
+        // and speaks for the point probe, which passes no shares and so had no
+        // clause in any partial case at all. Same composition as the snow and
+        // GLDAS pairs below.
+        const vegetationSupportNote =
+          vegetationAveragedSupportNote(
+            layer.id,
+            "sampled-area",
+            values,
+            mode === "area" ? validFractions : null
+          ) ?? vegetationChartedRecordNote(layer.id, values);
+        // And once more for snow, where the undrawn pixels are the percent-0
+        // ones GIBS leaves transparent — so an area mean is the mean where
+        // snow was drawn, and the undrawn share moves with the melt season
+        // rather than sitting still. The place panel states this for one
+        // month; the series did not. It also gives a snow-free box a reason
+        // for its empty chart instead of "no data at this point".
+        // And the same question along the OTHER axis, which no mode stated:
+        // that transparent band drops whole MONTHS out of the series too, so a
+        // seasonal point charts only the months that carried snow and the
+        // statistics beside them are conditional on that. The share clause
+        // above already names the mechanism for an averaged footprint, so this
+        // defers to it and speaks for the point probe — which passes no shares
+        // and so had no snow clause in any partial case at all.
+        const snowSupportNote =
+          snowAveragedSupportNote(
+            layer.id,
+            "sampled-area",
+            values,
+            mode === "area" ? validFractions : null
+          ) ?? snowChartedRecordNote(layer.id, values);
+        // And the two water-cycle layers, the last averaged ones charting a
+        // bare mean. GLDAS is solved on land cells only, and its ramp discards
+        // both the sub-zero fill and the open top bin, so an area mean covers
+        // the drawn cells alone. Unlike snow's undrawn pixels — all at the low
+        // end — the discarded set here holds the box's WETTEST cells too, so
+        // the clause refuses the dry reading rather than damping a swing.
+        // And the same question along the OTHER axis, which no mode stated for
+        // either water-cycle layer: those three exclusions drop whole MONTHS
+        // out of the series too, so the statistics beside the chart cover the
+        // charted months alone — and because the discarded set includes any
+        // month at or above the open top bin, the maximum need not be the
+        // record's. The share clause above already names the mechanism for an
+        // averaged footprint, so this defers to it and speaks for the point
+        // probe, which passes no shares and so had no clause in any partial
+        // case at all. Same composition as snow's pair, one line above.
+        const gldasSupportNote =
+          gldasAveragedSupportNote(
+            layer.id,
+            "sampled-area",
+            values,
+            mode === "area" ? validFractions : null
+          ) ?? gldasChartedRecordNote(layer.id, values);
+        // And air temperature, the last averaged layer charting a bare mean.
+        // Nothing is missing by domain here — MERRA-2 spans land and ocean —
+        // but its ramp is closed at BOTH ends and both open catch-alls are
+        // dropped by the inversion, so a box holding polar-winter or
+        // desert-summer cells averages the rest and reads as a mean of the box.
+        // Unlike snow's undrawn pixels, all at the low end, the discarded set
+        // here can hold the box's coldest and hottest cells at once, so the
+        // clause refuses a cool reading and a warm one alike rather than
+        // damping a swing.
+        // And the same question along the OTHER axis, which no air-temperature
+        // mode stated: those two open caps drop whole MONTHS out of the series
+        // too, so the statistics beside the chart cover the charted months
+        // alone — and because both discarded ends are physically reachable
+        // monthly means, unlike GLDAS's nonphysical sub-zero fill, the record
+        // is bracketed inward from both sides: the maximum need not be its
+        // warmest month nor the minimum its coldest. `emptyAtmosphereProbeNote`
+        // owns only the WHOLLY empty record, so the partial one had no clause
+        // here at all. The share clause above already names the mechanism for
+        // an averaged footprint, so this defers to it and speaks for the point
+        // probe, which passes no shares. Same composition as the three pairs
+        // above.
+        const airtempSupportNote =
+          airTemperatureAveragedSupportNote(
+            layer.id,
+            "sampled-area",
+            values,
+            mode === "area" ? validFractions : null
+          ) ?? airTemperatureChartedRecordNote(layer.id, values);
+        // An area value is a mean of per-pixel decodes and a point value a
+        // median, so only the area footprint carries censoring the end-cap
+        // screen cannot see. Shared by the status line and the export.
+        const averagedFootprint = mode === "area" ? "sampled-area" : null;
+        // The physical series the file writes, not the 0..1 gradient positions
+        // held here — every screen below judges the record as exported.
+        const physical = values.map((v) =>
+          v === null ? null : scaleValue(v, scale)
+        );
+        const sstCensoring = probeSstExtremeCensoring(layer.id, physical);
+        // The aerosol ramp has the same problem at one end: its top bin is open,
+        // so a heavy-loading month decodes to a lower bound. The status line has
+        // marked those since the end-cap screen shipped; the file did not.
+        const aerosolCensoring = probeAerosolCeilingCensoring(
+          layer.id,
+          physical
+        );
+        // And the LST ramp is capped at BOTH ends, so a polar-winter or
+        // desert-summer month decodes to a one-sided bound in either
+        // direction. The status line has marked those since the extreme screen
+        // shipped; the file did not.
+        const lstCensoring = probeLstExtremeCensoring(layer.id, physical);
+        panel.finish(
+          () =>
+            buildProbeCsv(
+              {
+                layerLabel: layer.label,
+                wmsLayer: layer.wmsLayer,
+                dataset: layer.dataset,
+                lat,
+                lon,
+                scale,
+                mode,
+                sampledBounds:
+                  mode === "area" ? sampler.areaBounds(lat, lon) : undefined,
+                imageWidth: PROBE_IMAGE.width,
+                imageHeight: PROBE_IMAGE.height,
+                generatedIso: new Date().toISOString(),
+                toolVersion: __APP_VERSION__,
+                viewUrl: currentShareUrl(),
+                // That RMSE is pooled over the whole ramp, and SST's is
+                // measured to be about three times worse below 4 °C. The
+                // status line already carries the split; the file needs it
+                // more, because it states its accuracy once at the top as a
+                // rule covering every row and then outlives the session that
+                // would have given the reader context. Judged on the physical
+                // series the file writes. Empty for every other layer and for
+                // an SST record that never enters the band.
+                // The ramp screen goes in because both figures are two-sided
+                // residuals: a month the low cap collapsed is inside the band but
+                // outside either ±, and it is exactly the coldest rows that reach
+                // the cap.
+                inversionAccuracyHeaders: [
+                  ...inversionAccuracyCsvHeaders(
+                    probeInversionAccuracy(layer.id, scale)
+                  ),
+                  // That builder is keyed to the calibrated layers, so it
+                  // writes nothing for EVI — whose error against GIBS's
+                  // published MOD13A3 ramp is measured all the same, in a
+                  // second record the lookup cannot reach. The status line
+                  // already says so; the file outlives the session and needs
+                  // it more. Empty for every layer the line above speaks for,
+                  // so the two can never both state an accuracy.
+                  ...uncalibratedVegetationAccuracyCsvHeaders(
+                    layer.id,
+                    probeInversionAccuracy(layer.id, scale).status
+                  ),
+                  // Neither builder above covers snow: it is ramp-inverted on a
+                  // calibrated scale but no colormap document has ever been
+                  // measured for it. Silence there reads as "nothing to
+                  // declare" beside a file that states an RMSE, so the absence
+                  // is written out rather than left to be inferred. Empty for
+                  // every layer either line above speaks for.
+                  ...unvalidatedInversionCsvHeaders(
+                    layer.id,
+                    probeInversionAccuracy(layer.id, scale).status
+                  ),
+                  ...sstColdEndAccuracyCsvHeaders(
+                    probeSstColdEndAccuracy(layer.id, physical, sstCensoring)
+                  ),
+                ],
+                // The status line already qualifies the on-screen month
+                // count; the exported file outlives the session, so it
+                // carries the same correction.
+                recordGapHeaders: probeRecordGapsCsvHeaders(
+                  probeRecordGaps(layer.id, probeMonths)
+                ),
+                // Same reasoning for *which* moments the values sample and
+                // *what quantity* they are: the probe states the SST and the
+                // LST sampling gate on screen, and the download needs them
+                // more — nothing in a column of degrees says it is a daytime
+                // skin composite, and on land the 2 m air-temperature sibling
+                // exports a column that looks identical to this one. A layer
+                // is sst or lst or neither, so only one product's lists
+                // contribute; for SST that is two, because the diurnal half
+                // and the cloud screen are separate gates owned by separate
+                // modules and the file was carrying only the first. Naming one
+                // of two co-equal gates reads as the whole account of which
+                // moments were composited, which is the same failure
+                // sstCaptionConstraintOmissions guards the caption against.
+                //
+                // The vegetation indices state the same gate on screen and were
+                // exporting none of it, though theirs is the one monthly value
+                // in the app that is not an average at all: each row is the
+                // *highest* eligible observation of its compositing window, and
+                // for NDVI that selection rule fixes a sign. A column of
+                // dimensionless index values says none of that. A layer is sst
+                // or lst or a vegetation index or snow or none of them, so only
+                // one product's lists contribute.
+                //
+                // Snow is the fourth product whose monthly value is decided by
+                // an observing gate, and the only one whose gate the app already
+                // computes and shows: the panel subtitle has named this point's
+                // dark months since `snowIlluminationNote` shipped, while the
+                // file it hands over carried nothing. That is the wrong way
+                // round for the one copy a reader keeps and reduces further —
+                // and MOD10CM can return a FILLED value through polar night, so
+                // a dark month reads there as an ordinary measurement rather
+                // than as an absence. Latitude-gated, so it is silent
+                // everywhere equatorward of 63.3° and costs most exports
+                // nothing. The drawn-region export below passes no latitude and
+                // stays silent: a box spans a range of them and has no one sun.
+                samplingIdentityHeaders: [
+                  ...sstSamplingIdentityCsvHeaders(layer.id),
+                  ...sstObservingConstraintCsvHeaders(layer.id),
+                  ...lstSamplingIdentityCsvHeaders(layer.id),
+                  ...vegetationSamplingIdentityCsvHeaders(layer.id),
+                  ...snowIlluminationCsvHeaders(layer.id, lat),
+                ],
+                // And the same for the rows themselves: the status line prints
+                // an inequality in front of every censored statistic, while a
+                // capped month's `value` cell is an ordinary decimal. Judged on
+                // the physical series the file writes, not the 0..1 gradient
+                // positions held here. Empty for every other layer and for a
+                // record that stayed inside the finite ramp. A layer is sst or
+                // aerosol or lst or none of them, so at most one list is
+                // non-empty.
+                censoringHeaders: [
+                  ...sstExtremeCensoringCsvHeaders(sstCensoring),
+                  ...aerosolCeilingCensoringCsvHeaders(aerosolCensoring),
+                  ...lstExtremeCensoringCsvHeaders(lstCensoring),
+                ],
+                // And that screen reads the area mean, not the pixels it
+                // averaged, so an unflagged row is not an uncensored one. A
+                // point probe's median needs no such correction.
+                averagedCensoringHeaders: [
+                  ...marineAveragedSstCensoringCsvHeaders(
+                    averagedFootprint,
+                    sstCensoring
+                  ),
+                  ...averagedAerosolCensoringCsvHeaders(
+                    averagedFootprint,
+                    aerosolCensoring
+                  ),
+                  ...averagedLstCensoringCsvHeaders(
+                    averagedFootprint,
+                    lstCensoring
+                  ),
+                ],
+                // And the same for the record's calendar composition: the panel
+                // says a mean over 11 of 12 calendar months is not an annual
+                // mean, then hands over a value column with nothing on it to
+                // stop the next reader averaging all of it. Silent for a record
+                // spread evenly across the calendar.
+                //
+                // The bound prefix goes in for the same reason it goes on the
+                // status line: the two means this header quotes are reduced
+                // from the very same months the block above may have just
+                // reported as capped. The panel at least prints its own `mean`
+                // already marked, so the reader sees the inequality either way;
+                // this file states no other mean, which makes these two the
+                // only ones in it and leaves nothing else to carry the caveat.
+                // Empty for every uncensored record and every closed ramp.
+                seasonalSamplingHeaders: seasonalSamplingCsvHeaders(
+                  seasonalSamplingBalance(probeMonths, physical),
+                  scale,
+                  sstExtremeBoundPrefix(sstCensoring, "mean") ||
+                    aerosolCeilingBoundPrefix(aerosolCensoring, "mean") ||
+                    lstExtremeBoundPrefix(lstCensoring, "mean")
+                ),
+              },
+              probeMonths,
+              values,
+              undefined,
+              validFractions
+            ),
+          `roamingeye_probe_${mode}_${layer.id}_${lat.toFixed(3)}_${lon.toFixed(3)}.csv`,
+          // SST is an ocean product, so an inland point returns nothing by
+          // construction — "no data at this point" reports that domain
+          // boundary as a retrieval failure. The marine note defers to the
+          // support clause above whenever that already explained the absence.
+          // Snow empties for the opposite reason — GIBS draws no colour for
+          // percent 0 — and a POINT probe carries no shares, so the averaged
+          // clause above cannot speak for it. This is that mode's only note.
+          // The vegetation indices empty the same way, below their ramp start
+          // rather than at zero, and were the last domain still reporting that
+          // as "no data at this point".
+          // Soil moisture is precipitation's sibling field in one GLDAS run, so
+          // it empties off land for the same reason — and again at the ramp's
+          // dropped top bin, which is why its note refuses the dry reading.
+          // Land surface temp was the last probeable family with no note at
+          // all: MOD11C3 is retrieved over land only, so open water empties it
+          // by construction — but it is also a clear-sky composite, so a month
+          // that never cleared empties it over land as well. Its note is the
+          // only two-sided one besides SST's, and for the mirror reason.
+          // Ranked above every domain note: those explain what a product
+          // covers, and a record whose imagery never arrived is no evidence
+          // about the product at all. Silent unless the record is empty AND a
+          // month failed on transport, so at most one of the two is rendered.
+          probeRetrievalFailureNote(values, transportFailureMonths) ??
+            emptyAtmosphereProbeNote(layer.id, values) ??
+            emptyLstProbeNote(layer.id, values) ??
+            emptyMarineProbeNote(layer.id, values, sstSupportNote) ??
+            emptySnowProbeNote(layer.id, values, snowSupportNote) ??
+            emptyVegetationProbeNote(layer.id, values, vegetationSupportNote) ??
+            emptySoilProbeNote(layer.id, values),
+          // Each note is gated on its own layer, so at most one is ever a
+          // string — the fallback picks the one that spoke.
+          sstSupportNote ??
+            vegetationSupportNote ??
+            snowSupportNote ??
+            gldasSupportNote ??
+            airtempSupportNote,
+          // Area mode charts a weighted mean of per-pixel decodes; point mode
+          // charts a median, which the SST end-cap screen already catches.
+          averagedFootprint,
+          // Only an area probe measures a per-month footprint share, and the
+          // same-calendar-month baseline screens on one, so a point probe is
+          // passed none and stays silent — as every other share-dependent
+          // clause on this panel already does for a point.
+          mode === "area" ? validFractions : null
+        );
+      })
+      .catch((err) => {
+        if (isAbortError(err)) return;
+        console.warn("RoamingEye: probe sampling failed", err);
+        panel.setStatus("Sampling failed — check the connection and retry.");
+      });
+  };
+
+  // Chart the monthly mean of a drawn region — same pipeline as the point
+  // probe, sampling a grid over the box instead of one location. A searched
+  // `place` charts the same way over only the grid cells inside its boundary;
+  // `bounds` is then that boundary's extent, not the area averaged.
+  const runRegionProbe = (
+    bounds: Bounds,
+    place?: GeoResult & { geometry: GeoGeometry }
+  ): void => {
+    const layer = LAYERS[currentLayer];
+    probeTarget = undefined; // the mode toggle is hidden for region charts
+    chartedPlace = undefined; // a click replaces a place chart
+    const footprint = place ? "searched-boundary" : "drawn-region";
+    // The box travels in the link with the chart it explains. A drawn region
+    // is the box itself (`probe=`). A searched place's polygon is too large
+    // for a hash, so the link carries `place=` instead and the restore below
+    // reopens this same chart from one Nominatim lookup.
+    if (!place) clearSharedSearch();
+    probeShare = place ? undefined : { kind: "region", bounds };
+    if (place) drawer.clear(); // a place's chart replaces a drawn box's
+    scheduleHashSync();
+    const regionProbeWasOpen = panel.isOpen;
+    panel.open(
+      plainLayerName(layer.id),
+      place
+        ? `${place.name} · mean inside the searched boundary`
+        : // normalizeLon: a box drawn across the antimeridian carries
+          // continuous longitudes (east > 180); display them as real ones.
+          `Drawn region · mean over ${formatLatLng({ lat: bounds.south, lon: normalizeLon(bounds.west) })} → ` +
+            formatLatLng({ lat: bounds.north, lon: normalizeLon(bounds.east) })
+    );
+    if (!regionProbeWasOpen) foldHudForOverlay?.();
+    panel.setModeToggleVisible(false);
+    if (layer.static) {
+      panel.setStatus(
+        "This layer has no time dimension — pick a monthly layer to chart a series."
+      );
+      return;
+    }
+    if (layer.categorical) {
+      // No numeric series to chart — but the class mix over the drawn box is a
+      // real, citable observation, so read it instead of dead-ending. Only the
+      // IGBP layer has a decodable palette here; any other class-coded layer
+      // keeps the honest "nothing to chart" message rather than being read
+      // through a palette that does not describe it. A searched boundary is
+      // not read this way: the class read covers its whole extent, which
+      // would count the neighbouring ground in.
+      if (layer.id === "landcover" && !place) {
+        probeAbort?.abort();
+        const abort = (probeAbort = new AbortController());
+        readLandCoverRegion(layer, months[currentIndex], bounds, abort);
+        return;
+      }
+      panel.setStatus(
+        "This layer shows classes, not a measurement — there is no numeric series to chart."
+      );
+      return;
+    }
+
+    probeAbort?.abort();
+    const abort = (probeAbort = new AbortController());
+    const probeMonths = monthRangeForLayer(layer);
+    const scale = PROBE_SCALES[layer.id];
+    panel.beginSeries(probeMonths, scale, { layerId: layer.id });
+
+    let lastDraw = 0;
+    const sampleOptions = {
+      signal: abort.signal,
+      onValue: (index: number, value: number | null) =>
+        panel.setValue(index, value),
+      onProgress: (done: number, total: number) => {
+        // Silent: the counter ticks once per month, and announcing every
+        // tick buries the result behind a queue of them. See setStatus.
+        panel.setStatus(`Sampling ${done}/${total} months…`, {
+          announce: false,
+          busy: true,
+        });
+        const now = performance.now();
+        if (now - lastDraw > 150 || done === total) {
+          lastDraw = now;
+          panel.refresh();
+        }
+      },
+    };
+    whileSampling(
+      abort,
+      place
+        ? sampler.sampleGeometry(
+            layer,
+            probeMonths,
+            place.geometry,
+            place,
+            sampleOptions
+          )
+        : sampler.sampleRegion(layer, probeMonths, bounds, sampleOptions)
+    )
+      .then((sampled) => {
+        // Unpacked here rather than in the parameter list: a fourth field
+        // wraps the pattern, and reflowing it reindents this whole handler.
+        const { values, validFractions, regionSampling } = sampled;
+        const { transportFailureMonths } = sampled;
+        const { geometrySampling, geometrySamplingStrategy } = sampled;
+        if (abort.signal.aborted) return;
+        // A boundary too thin for any grid cell is read at one point inside
+        // it, and the caption above promises a mean over the boundary.
+        const boundaryPointNote =
+          geometrySamplingStrategy === "boundary-point"
+            ? "No sampling cell fits inside this boundary, so the chart reads one point inside it, not a mean over it"
+            : null;
+        // The header names the drawn box, but SST is undefined over land and
+        // those pixels are rejected rather than averaged in — so a coastal
+        // box charts the water it found, not the box. The CSV already
+        // carries this share per month; state it on the panel too.
+        const sstSupportNote = averagedSstSupportNote(
+          layer.id,
+          footprint,
+          values,
+          validFractions
+        );
+        // That share says how much of the box returned pixels; it cannot say
+        // how many independent source values those pixels carry. A region may
+        // be drawn as small as 0.2° a side, and above ~66° that is narrower
+        // than one ~9 km L3 cell — so the charted mean can rest on a single
+        // retrieval whose footprint extends outside the box the header names.
+        // The place panel states this for a searched boundary; the series
+        // surface did not. Silent unless the geometry actually qualifies the
+        // mean, and only where there is a charted mean to qualify.
+        const sstNativeNote = sstNativeSupportNote(
+          layer.id,
+          footprint,
+          bounds,
+          values
+        );
+        // And the same for the vegetation indices. GIBS leaves every value
+        // below the ramp start undrawn, so a box's water, snow, ice and cloud
+        // pixels are rejected rather than averaged in — and those are exactly
+        // its lowest-index ones, which the CSV's per-month share records but
+        // the panel did not. The place panel already states this for a single
+        // month; the series surface did not.
+        // And the same other axis here. A drawn region always supplies shares,
+        // so the clause above usually speaks — but it reads shares only from
+        // months that charted, so a box whose drawn months each covered it
+        // fully still reports nothing about the months that dropped out
+        // entirely. This covers exactly that case and defers otherwise.
+        const vegetationSupportNote =
+          vegetationAveragedSupportNote(
+            layer.id,
+            footprint,
+            values,
+            validFractions
+          ) ?? vegetationChartedRecordNote(layer.id, values);
+        // And the same for snow: GIBS leaves percent 0 transparent, so a box's
+        // snow-free ground is rejected rather than averaged in as 0% — the
+        // charted mean covers the drawn patches only, and the share it covers
+        // shrinks through the melt season, damping the swing the chart shows.
+        // And the same temporal companion as the point/area path: a drawn box
+        // loses whole months to the same transparent band, and the share clause
+        // above speaks first whenever it has something to say.
+        const snowSupportNote =
+          snowAveragedSupportNote(
+            layer.id,
+            footprint,
+            values,
+            validFractions
+          ) ?? snowChartedRecordNote(layer.id, values);
+        // And the same for the two water-cycle layers — see the point/area
+        // path. A drawn box gets the clause for the same reason a sampled one
+        // does: GLDAS carries no value off land, and its ramp's discarded caps
+        // sit at both ends, so the share the mean covers is not a share of the
+        // box and its remainder is not dry ground.
+        // And along the time axis, exactly as in the point/area path: the same
+        // three exclusions drop whole months out, so the statistics cover the
+        // charted months alone and a month at or above the open top bin is
+        // among the discarded. Defers to the share clause when that spoke.
+        const gldasSupportNote =
+          gldasAveragedSupportNote(
+            layer.id,
+            footprint,
+            values,
+            validFractions
+          ) ?? gldasChartedRecordNote(layer.id, values);
+        // And air temperature — see the point/area path. A drawn box gets the
+        // clause for the same reason a sampled one does: the rendered ramp is
+        // closed at both ends, so the share the mean covers is not a share of
+        // the box, and its remainder is evidence in neither direction.
+        // And the temporal companion, as on the point/area path: the same two
+        // caps drop whole months out of the charted series, and a drawn region
+        // whose share clause is silent still charts a partial record.
+        const airtempSupportNote =
+          airTemperatureAveragedSupportNote(
+            layer.id,
+            footprint,
+            values,
+            validFractions
+          ) ?? airTemperatureChartedRecordNote(layer.id, values);
+        // The physical series the file writes, not the 0..1 gradient positions
+        // held here. Shared by the status line and the export.
+        const physical = values.map((v) =>
+          v === null ? null : scaleValue(v, scale)
+        );
+        const sstCensoring = probeSstExtremeCensoring(layer.id, physical);
+        // Same for the aerosol ramp's open top bin — see the point/area path.
+        const aerosolCensoring = probeAerosolCeilingCensoring(
+          layer.id,
+          physical
+        );
+        // And the LST ramp is capped at BOTH ends, so a polar-winter or
+        // desert-summer month decodes to a one-sided bound in either
+        // direction. The status line has marked those since the extreme screen
+        // shipped; the file did not.
+        const lstCensoring = probeLstExtremeCensoring(layer.id, physical);
+        panel.finish(
+          () =>
+            buildProbeCsv(
+              {
+                layerLabel: layer.label,
+                wmsLayer: layer.wmsLayer,
+                dataset: layer.dataset,
+                lat: place ? place.lat : (bounds.south + bounds.north) / 2,
+                lon: place ? place.lon : (bounds.west + bounds.east) / 2,
+                scale,
+                mode: place ? "boundary" : "region",
+                sampledBounds: bounds,
+                regionSampling,
+                boundaryName: place?.displayName,
+                geometrySampling:
+                  geometrySampling && geometrySamplingStrategy
+                    ? {
+                        ...geometrySampling,
+                        strategy: geometrySamplingStrategy,
+                      }
+                    : undefined,
+                imageWidth: PROBE_IMAGE.width,
+                imageHeight: PROBE_IMAGE.height,
+                generatedIso: new Date().toISOString(),
+                toolVersion: __APP_VERSION__,
+                viewUrl: currentShareUrl(),
+                // That RMSE is pooled over the whole ramp, and SST's is
+                // measured to be about three times worse below 4 °C. The
+                // status line already carries the split; the file needs it
+                // more, because it states its accuracy once at the top as a
+                // rule covering every row and then outlives the session that
+                // would have given the reader context. Judged on the physical
+                // series the file writes. Empty for every other layer and for
+                // an SST record that never enters the band.
+                // The ramp screen goes in because both figures are two-sided
+                // residuals: a month the low cap collapsed is inside the band but
+                // outside either ±, and it is exactly the coldest rows that reach
+                // the cap.
+                inversionAccuracyHeaders: [
+                  ...inversionAccuracyCsvHeaders(
+                    probeInversionAccuracy(layer.id, scale)
+                  ),
+                  // That builder is keyed to the calibrated layers, so it
+                  // writes nothing for EVI — whose error against GIBS's
+                  // published MOD13A3 ramp is measured all the same, in a
+                  // second record the lookup cannot reach. The status line
+                  // already says so; the file outlives the session and needs
+                  // it more. Empty for every layer the line above speaks for,
+                  // so the two can never both state an accuracy.
+                  ...uncalibratedVegetationAccuracyCsvHeaders(
+                    layer.id,
+                    probeInversionAccuracy(layer.id, scale).status
+                  ),
+                  // Neither builder above covers snow: it is ramp-inverted on a
+                  // calibrated scale but no colormap document has ever been
+                  // measured for it. Silence there reads as "nothing to
+                  // declare" beside a file that states an RMSE, so the absence
+                  // is written out rather than left to be inferred. Empty for
+                  // every layer either line above speaks for.
+                  ...unvalidatedInversionCsvHeaders(
+                    layer.id,
+                    probeInversionAccuracy(layer.id, scale).status
+                  ),
+                  ...sstColdEndAccuracyCsvHeaders(
+                    probeSstColdEndAccuracy(layer.id, physical, sstCensoring)
+                  ),
+                ],
+                // The status line already qualifies the on-screen month
+                // count; the exported file outlives the session, so it
+                // carries the same correction.
+                recordGapHeaders: probeRecordGapsCsvHeaders(
+                  probeRecordGaps(layer.id, probeMonths)
+                ),
+                // Same reasoning for *which* moments the values sample and
+                // *what quantity* they are: the probe states the SST and the
+                // LST sampling gate on screen, and the download needs them
+                // more — nothing in a column of degrees says it is a daytime
+                // skin composite, and on land the 2 m air-temperature sibling
+                // exports a column that looks identical to this one. A layer
+                // is sst or lst or neither, so only one product's lists
+                // contribute; for SST that is two, because the diurnal half
+                // and the cloud screen are separate gates owned by separate
+                // modules and the file was carrying only the first. Naming one
+                // of two co-equal gates reads as the whole account of which
+                // moments were composited, which is the same failure
+                // sstCaptionConstraintOmissions guards the caption against.
+                //
+                // The vegetation indices state the same gate on screen and were
+                // exporting none of it, though theirs is the one monthly value
+                // in the app that is not an average at all: each row is the
+                // *highest* eligible observation of its compositing window, and
+                // for NDVI that selection rule fixes a sign. A column of
+                // dimensionless index values says none of that. A layer is sst
+                // or lst or a vegetation index or none of them, so only one
+                // product's lists contribute.
+                samplingIdentityHeaders: [
+                  ...sstSamplingIdentityCsvHeaders(layer.id),
+                  ...sstObservingConstraintCsvHeaders(layer.id),
+                  ...lstSamplingIdentityCsvHeaders(layer.id),
+                  ...vegetationSamplingIdentityCsvHeaders(layer.id),
+                ],
+                // And the same for the rows themselves: the status line prints
+                // an inequality in front of every censored statistic, while a
+                // capped month's `value` cell is an ordinary decimal. Judged on
+                // the physical series the file writes, not the 0..1 gradient
+                // positions held here. Empty for every other layer and for a
+                // record that stayed inside the finite ramp. A layer is sst or
+                // aerosol or lst or none of them, so at most one list is
+                // non-empty.
+                censoringHeaders: [
+                  ...sstExtremeCensoringCsvHeaders(sstCensoring),
+                  ...aerosolCeilingCensoringCsvHeaders(aerosolCensoring),
+                  ...lstExtremeCensoringCsvHeaders(lstCensoring),
+                ],
+                // And that screen reads the region mean, not the pixels it
+                // averaged, so an unflagged row is not an uncensored one.
+                averagedCensoringHeaders: [
+                  ...marineAveragedSstCensoringCsvHeaders(
+                    footprint,
+                    sstCensoring
+                  ),
+                  ...averagedAerosolCensoringCsvHeaders(
+                    footprint,
+                    aerosolCensoring
+                  ),
+                  ...averagedLstCensoringCsvHeaders(footprint, lstCensoring),
+                ],
+                // A drawn box spans latitudes and can straddle hemispheres, so
+                // the balance is measured on the region's own charted series
+                // and given no location context — it describes which calendar
+                // months this file holds, and claims nothing about their
+                // seasons.
+                //
+                // The bound prefix carries over unchanged: a region's censoring
+                // screen reads its area means, so a prefix it does raise is as
+                // true of a re-weighting of those means as of their average.
+                // The averaged-censoring lines above already say that silence
+                // here is not evidence the region held no capped pixel.
+                seasonalSamplingHeaders: seasonalSamplingCsvHeaders(
+                  seasonalSamplingBalance(probeMonths, physical),
+                  scale,
+                  sstExtremeBoundPrefix(sstCensoring, "mean") ||
+                    aerosolCeilingBoundPrefix(aerosolCensoring, "mean") ||
+                    lstExtremeBoundPrefix(lstCensoring, "mean")
+                ),
+              },
+              probeMonths,
+              values,
+              undefined,
+              validFractions
+            ),
+          place
+            ? `roamingeye_place_${layer.id}_${place.lat.toFixed(3)}_${place.lon.toFixed(3)}.csv`
+            : `roamingeye_region_${layer.id}_${bounds.south.toFixed(2)}_${normalizeLon(bounds.west).toFixed(2)}_${bounds.north.toFixed(2)}_${normalizeLon(bounds.east).toFixed(2)}.csv`,
+          // A drawn region that returned nothing is normally explained by the
+          // support clause; the marine, snow and vegetation notes only speak
+          // when it did not — a region always supplies shares, so those three
+          // defer here. They are passed anyway so the chain stays the same on
+          // both paths and a region that ever loses its shares is still
+          // explained rather than falling back to "no data at this point".
+          // The soil note is passed no share for the opposite reason: the GLDAS
+          // clause is deliberately silent on an empty record, because this note
+          // and the atmosphere one already own that sentence and both already
+          // refuse the dry reading. So it reads the same here as it always did.
+          // The LST note is passed no share for the same reason as soil: no
+          // averaged-support clause speaks for this layer on either path, so
+          // there is nothing for it to defer to and the region behaves as the
+          // point probe does.
+          // Ranked above every domain note: those explain what a product
+          // covers, and a record whose imagery never arrived is no evidence
+          // about the product at all. Silent unless the record is empty AND a
+          // month failed on transport, so at most one of the two is rendered.
+          probeRetrievalFailureNote(values, transportFailureMonths) ??
+            emptyAtmosphereProbeNote(layer.id, values) ??
+            emptyLstProbeNote(layer.id, values) ??
+            emptyMarineProbeNote(layer.id, values, sstSupportNote) ??
+            emptySnowProbeNote(layer.id, values, snowSupportNote) ??
+            emptyVegetationProbeNote(layer.id, values, vegetationSupportNote) ??
+            emptySoilProbeNote(layer.id, values),
+          // Each note is gated on its own layer, so at most one layer's notes
+          // are ever strings — the fallback picks the one that spoke. SST is
+          // the one layer with two clauses on this axis: the share it covered
+          // and the source cells it could resolve. They answer different
+          // questions about the same box, so both are carried, in that order.
+          // The native clause is null for an empty series, so the absence
+          // line built from this argument reads exactly as it did before.
+          // The single-point caveat leads, since it changes what every other
+          // clause's "mean" is.
+          [
+            boundaryPointNote,
+            [sstSupportNote, sstNativeNote].filter(Boolean).join(" · ") ||
+              vegetationSupportNote ||
+              snowSupportNote ||
+              gldasSupportNote ||
+              airtempSupportNote,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
+          // Every region value is a weighted mean of per-pixel decodes.
+          footprint,
+          // A drawn region always supplies shares, so the standing clause can
+          // screen coverage the way the baseline requires.
+          validFractions
+        );
+      })
+      .catch((err) => {
+        if (isAbortError(err)) return;
+        console.warn("RoamingEye: region sampling failed", err);
+        panel.setStatus("Sampling failed — check the connection and retry.");
+      });
+  };
+
+  chartPlace = (result) => {
+    adoptSearchResult(result, false);
+    const geometry = result.geometry;
+    const extent =
+      geometry && isAreaGeometry(geometry) ? geometryBounds(geometry) : null;
+    if (geometry && extent) runRegionProbe(extent, { ...result, geometry });
+    else runProbe(result.lat, result.lon); // a point-like result has no area
+    chartedPlace = result;
+  };
+
+  // A shared place link: one Nominatim /lookup for the outline (lighter than
+  // the 1.3 MB admin-1 file, and it is the polygon that was searched, cities
+  // included). The box in the hash is the outline when that lookup fails.
+  // Deferred until the first imagery lands, same as a shared probe — the
+  // chart's fetches would otherwise compete with boot.
+  if (initialView.place) {
+    const generation = placeGeneration;
+    const restoreSharedPlace = (): void => {
+      if (!firstLoadDone) {
+        setTimeout(restoreSharedPlace, 300);
+        return;
+      }
+      void finishSharedPlace(generation);
+    };
+    const finishSharedPlace = async (generation: number): Promise<void> => {
+      const place = sharedPlace;
+      if (!place || generation !== placeGeneration) return;
+      let geometry: GeoGeometry | null = null;
+      if (place.osm) {
+        try {
+          geometry = (await lookupPlace(place.osm))?.geometry ?? null;
+        } catch (err) {
+          if (!isAbortError(err)) {
+            console.warn("RoamingEye: place outline lookup failed", err);
+          }
+        }
+      }
+      if (!sharedPlace || generation !== placeGeneration) return;
+      if (!isAreaGeometry(geometry) && sharedPlace.bbox) {
+        geometry = bboxOutline(sharedPlace.bbox);
+      }
+      const result = resultFromSharedPlace(sharedPlace, geometry);
+      if (!initialView.camera) {
+        const { flyToDistance, longitudesInGeometry } =
+          await import("./lib/placeFrame");
+        flyer.flyTo(
+          result.lat,
+          result.lon,
+          flyToDistance(
+            result.boundingBox,
+            longitudesInGeometry(result.geometry)
+          )
+        );
+      }
+      highlight.show({
+        lat: result.lat,
+        lon: result.lon,
+        geometry: result.geometry,
+      });
+      studyRegion.hide();
+      studyChip?.hide();
+      runPlaceInsights(result);
+    };
+    restoreSharedPlace();
+  }
+
+  // Restore a shared probe: rerun the sampling at the linked point so the
+  // recipient sees the same chart the sender did. Deferred until the first
+  // globe imagery has landed — the probe's ~300 fetches would otherwise
+  // compete with the initial load on the same connection pool.
+  // A place link flies to the place and does not chart it. Restoring a probe
+  // from the same link would start the sample the search no longer starts.
+  if (initialView.probe && !initialView.place) {
+    const target = initialView.probe;
+    const restoreWhenReady = (): void => {
+      if (!firstLoadDone) {
+        setTimeout(restoreWhenReady, 300);
+        return;
+      }
+      if (target.kind === "region") {
+        // Redraw the box first: nothing dragged it, and the chart's caption
+        // names those corners as what it averaged over.
+        drawer.show(target.bounds);
+        runRegionProbe(target.bounds);
+        return;
+      }
+      // Before the sampling, not after: runProbe reads the panel's mode to
+      // choose the statistic, so adopting it afterwards would chart a point
+      // median under an area caption.
+      panel.restoreMode(target.mode);
+      runProbe(target.lat, target.lon);
+    };
+    restoreWhenReady();
+  }
+
+  // A click is a pointer that barely travels; anything longer is a rotate/zoom.
+  const probeRaycaster = new THREE.Raycaster();
+  let probeDownX = 0;
+  let probeDownY = 0;
+  let probeSuppressed = false;
+  canvas.addEventListener("pointerdown", (e) => {
+    probeDownX = e.clientX;
+    probeDownY = e.clientY;
+    probeSuppressed = drawer.active; // that gesture belongs to the drawer
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    if (probeSuppressed) return;
+    if (Math.hypot(e.clientX - probeDownX, e.clientY - probeDownY) > 6) return;
+    const rect = canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    probeRaycaster.setFromCamera(ndc, camera);
+    const meshHit = probeRaycaster.intersectObject(earth, false)[0];
+    const camLength = camera.position.length();
+    const resolved = resolveGroundPoint(
+      camLength,
+      vector3ToLatLng(camera.position).lat,
+      probeRaycaster.ray.origin,
+      probeRaycaster.ray.direction,
+      meshHit ? meshHit.point : null
+    );
+    if (!resolved) return;
+    const point =
+      camLength >= 1 && meshHit
+        ? meshHit.point
+        : new THREE.Vector3(resolved.x, resolved.y, resolved.z);
+    const { lat, lon } = vector3ToLatLng(point);
+    clearSharedSearch();
+    runProbe(lat, lon);
+  });
+
+  // The keyboard equivalent of that click. A pointer names its own target;
+  // a keyboard has to be given one, and the only point on the globe a
+  // keyboard user has already aimed at is the one the arrow keys steer: the
+  // camera's subpoint, dead centre of the view. It is the same point the
+  // shareable hash records as the camera position, so a probe opened this way
+  // reproduces from the link like any other. The marker the search fly-to
+  // uses is shown at it, so the answer is not only in the panel — a sighted
+  // keyboard user can see which point was charted.
+  canvas.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const { lat, lon } = vector3ToLatLng(camera.position);
+    // In draw mode the same key takes a corner instead of a point: two
+    // presses, with the arrows between them, are a drag a keyboard can make.
+    if (drawer.active) {
+      e.preventDefault();
+      const outcome = drawer.markCorner({ lat, lon });
+      if (outcome === "anchored") {
+        // Nothing is outlined yet — one corner is not a box — so the marker
+        // is what a sighted keyboard user sees the corner land on.
+        highlight.show({ lat, lon, geometry: null });
+        setStatus("Corner set — turn the globe, then Enter");
+      } else if (outcome === "rejected") {
+        setStatus("Too small — turn further, then Enter");
+      } else {
+        highlight.clear(); // the outline is the region's own mark now
+      }
+      return;
+    }
+    if (!controls.enabled) return; // a flight owns the camera
+    e.preventDefault(); // Space would otherwise scroll the page
+    clearSharedSearch();
+    highlight.show({ lat, lon, geometry: null });
+    runProbe(lat, lon);
+  });
+}
+
+// --- Secondary panels -------------------------------------------------------
+// The providers, software and fleet panels are reference material: none of it is
+// needed to render the globe, and each drags in its own catalog and formatting
+// code. They are loaded on first open instead of at boot, which keeps that code
+// out of the entry chunk (see scripts/check-bundle-size.mjs).
+//
+// Clearing the cache on failure lets the next click call `import()` again.
+// Whether that reaches the network depends on the browser: Chromium 156+ does
+// not cache a failed module fetch, so the click re-requests; Safari and
+// Firefox still keep the rejection, so it does not. Reloading is the remedy
+// that works in every browser, which is what `name` is here to say — before
+// this, the whole report was the global unhandled-rejection toast quoting a
+// hashed bundle URL.
+function lazyPanel(
+  container: HTMLElement,
+  link: HTMLElement,
+  name: string,
+  load: () => Promise<new (el: HTMLElement) => { open(): void }>
+): void {
+  let panel: Promise<{ open(): void }> | null = null;
+
+  /**
+   * Mark the pressed control as waiting on its chunk.
+   *
+   * Nothing of these panels is in the page until their chunk lands, so on a
+   * slow connection the first press changed nothing the reader could see — no
+   * state on the button, no content, seconds of it — and the ordinary response
+   * to a control that looks dead is to press it again. Same two attributes the
+   * toolbar uses for the same wait: `aria-busy` carries it to assistive tech,
+   * `data-state` drives the styling and swallows the repeat presses.
+   */
+  const setPending = (pending: boolean): void => {
+    if (pending) {
+      link.dataset.state = "pending";
+      link.setAttribute("aria-busy", "true");
+    } else {
+      delete link.dataset.state;
+      link.removeAttribute("aria-busy");
+    }
+  };
+
+  link.addEventListener("click", () => {
+    // Already on the wire from an earlier press: a second open() queued behind
+    // the same request would only re-run when the first one does.
+    if (link.dataset.state === "pending") return;
+    if (!panel) {
+      setPending(true);
+      panel = load().then((Panel) => new Panel(container));
+      // Settled either way, the wait is over: the panel itself is now the
+      // report on success, and the toast below is the one on failure.
+      panel.then(
+        () => setPending(false),
+        () => {
+          setPending(false);
+          panel = null;
+        }
+      );
+    }
+    void panel.then(
+      (p) => p.open(),
+      () => {
+        errorToast.show(`Couldn't load ${name}. Reload the page to try again.`);
+      }
+    );
+  });
+}
+
+// --- "About this layer" ----------------------------------------------------
+// The dock shows what's needed to read the globe; the scale's title, the
+// caption and the source note are reference material, one level deeper. This
+// opens them in place above the dock's row. It's a disclosure, so the button's
+// `aria-expanded` is the whole announcement.
+const hudInfoEl = document.querySelector<HTMLElement>("#hud-info");
+if (hudInfoEl && controlsEl) {
+  hudInfoEl.addEventListener("click", () => {
+    const open = controlsEl.classList.toggle("is-details-open");
+    hudInfoEl.setAttribute("aria-expanded", String(open));
+  });
+}
+
+// --- Folding the data panel away -------------------------------------------
+// Phones are where even the dock competes with the middle of the view, and
+// what it can give back there can only come out of content, which is the
+// reader's call to make rather than a threshold to guess at. The button is
+// rendered only inside the same media query as the collapsed state, so nothing
+// here needs to watch the viewport: growing the window past it restores every
+// row on its own.
+const hudCollapseEl = document.querySelector<HTMLElement>("#hud-collapse");
+if (hudCollapseEl && controlsEl) {
+  // The chevron points the way the panel will move, so it reads as a direction
+  // rather than as a state the label is already carrying.
+  const CHEVRON_DOWN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+  const CHEVRON_UP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>`;
+
+  // Unfolded on a short screen, the dock can reach up into the header, and a
+  // tap meant for the timeline lands on the actions pill instead. The header
+  // yields while that is true (style.css, .dock-over-header). Measured, not a
+  // breakpoint: the overlap turns on the width, the height, the pointer's
+  // target sizes and how the dock's text wraps. Hidden parts keep their boxes,
+  // so the measurement never feeds back into itself.
+  const appEl = document.querySelector<HTMLElement>("#app");
+  const brandEl = document.querySelector(".brand");
+  const headerParts = [".search__field", "#actions"]
+    .map((sel) => document.querySelector<HTMLElement>(sel))
+    .filter((el): el is HTMLElement => el !== null);
+  const syncHeader = (): void => {
+    let meets = false;
+    if (!controlsEl.classList.contains("is-collapsed")) {
+      const dock = controlsEl.getBoundingClientRect();
+      const boxes = headerParts.map((el) => el.getBoundingClientRect());
+      if (brandEl) {
+        // The heading spans the header; only its words can be covered.
+        const words = document.createRange();
+        words.selectNodeContents(brandEl);
+        boxes.push(words.getBoundingClientRect());
+      }
+      meets = boxes.some(
+        (b) =>
+          b.width > 0 &&
+          b.left < dock.right &&
+          b.right > dock.left &&
+          b.top < dock.bottom &&
+          b.bottom > dock.top
+      );
+    }
+    appEl?.classList.toggle("dock-over-header", meets);
+  };
+  new ResizeObserver(syncHeader).observe(controlsEl);
+  window.addEventListener("resize", syncHeader);
+
+  const applyCollapsed = (collapsed: boolean): void => {
+    controlsEl.classList.toggle("is-collapsed", collapsed);
+    // Folded, the play button goes with the timeline, so nothing on screen
+    // could stop a playback left running.
+    if (collapsed) timeSlider?.pause();
+    syncHeader();
+    hudCollapseEl.innerHTML = collapsed ? CHEVRON_UP : CHEVRON_DOWN;
+    hudCollapseEl.setAttribute("aria-expanded", String(!collapsed));
+    const label = collapsed
+      ? "Show the scale and timeline"
+      : "Hide the scale and timeline";
+    hudCollapseEl.setAttribute("aria-label", label);
+    hudCollapseEl.title = label;
+    // No announcement: `aria-expanded` already carries this, and announcing
+    // what a state attribute reports is the chatter the overlay toggles
+    // deliberately avoid.
+  };
+
+  // Everywhere the reader has room, the panel opens with every row showing and
+  // nothing folds on its own — that is the whole of the decision above. The one
+  // exception is the height at which the panel stops fitting the window at all:
+  // expanded it measures 266px against a viewport of 360 to 430px, so a phone
+  // held in landscape does not merely lose the middle of the view, it pushes
+  // the panel's own top off the screen — to -33px at 740x360 and -18px at
+  // 667x375, which takes this very button with it and leaves no way back.
+  // A default that cannot be reversed is not an offer, so below that height the
+  // panel opens folded and the button is on screen to open it. Folding keeps
+  // the layer selector and the provenance line, so the product ID and the month
+  // are still rendered in the default state and no citation is behind a
+  // gesture. This is the same media query the bottom app bar takes over at,
+  // shared deliberately: the bar is what reserves the space the panel is short
+  // of, so the two belong to one layout rather than to two thresholds.
+  const SHORT_VIEWPORT = "(max-height: 460px)";
+  const shortViewport = window.matchMedia?.(SHORT_VIEWPORT);
+  applyCollapsed(shortViewport?.matches ?? false);
+  hudCollapseEl.addEventListener("click", () =>
+    applyCollapsed(!controlsEl.classList.contains("is-collapsed"))
+  );
+
+  // An overlay opening on top of the panel is the other case where the panel
+  // has to yield, and on a phone held upright it is the sharper one. The probe
+  // is a 346px dialog and the panel is 373px tall in a 844px viewport, so the
+  // two cannot both have the middle of the screen: measured at 390x844 the
+  // probe covers the panel from 347px to its own 620px bottom, which is exactly
+  // where this button and the layer selector sit. Both were unreachable — a hit
+  // test on the button returned the probe panel, and on the selector the
+  // probe's chart canvas. Folding is what the panel already does when it is
+  // short of room, and folded it sits at 625px, clear of the probe entirely.
+  //
+  // Scoped to the width where the collision is real. The probe is bottom-centred
+  // and takes `bottom: 14rem` only below 540px; wider than that it is anchored
+  // to the left at `top: 50%` and never reaches the bottom-centre panel. 540px
+  // is also the fold's own width arm, so the gesture is offered exactly where
+  // it is available — no new breakpoint, and a no-op if the reader has already
+  // folded it.
+  const CROWDED_VIEWPORT = "(max-width: 540px)";
+  foldHudForOverlay = () => {
+    if (!window.matchMedia?.(CROWDED_VIEWPORT).matches) return;
+    if (controlsEl.classList.contains("is-collapsed")) return;
+    applyCollapsed(true);
+  };
+  // Rotating a phone into landscape is the same event as booting into it, and
+  // it arrives at a panel that is already off the top of the screen. Only the
+  // crossing INTO the short viewport folds: coming back out leaves the reader's
+  // own choice alone, and above 720px the roomy layout ignores the state
+  // anyway, so nothing has to be undone here.
+  shortViewport?.addEventListener("change", (event) => {
+    if (event.matches) applyCollapsed(true);
+  });
+}
+
+if (providersPageEl && providersLinkEl) {
+  lazyPanel(providersPageEl, providersLinkEl, "the data providers", () =>
+    import("./ui/ProvidersPage").then((m) => m.ProvidersPage)
+  );
+}
+
+// Software discovery is static and review-gated: the finder reads only the
+// approved catalog artifact produced by the catalog agent fleet.
+if (softwarePageEl && softwareLinkEl) {
+  lazyPanel(softwarePageEl, softwareLinkEl, "the software finder", () =>
+    import("./ui/SoftwareFinder").then((m) => m.SoftwareFinder)
+  );
+}
+
+if (fleetPageEl && fleetLinkEl) {
+  lazyPanel(fleetPageEl, fleetLinkEl, "the fleet status", () =>
+    import("./ui/FleetDashboard").then((m) => m.FleetDashboard)
+  );
+}
+
+// --- The actions pill's More menu --------------------------------------------
+const moreButtonEl = document.querySelector<HTMLElement>("#more-button");
+const moreMenuEl = document.querySelector<HTMLElement>("#more-menu");
+if (moreButtonEl && moreMenuEl) new ActionMenu(moreButtonEl, moreMenuEl);
+
+// --- Keyboard shortcuts overlay -----------------------------------------------
+const shortcutsPageEl = document.querySelector<HTMLElement>("#shortcuts-page");
+if (shortcutsPageEl) {
+  const shortcuts = new ShortcutsOverlay(shortcutsPageEl);
+  document
+    .querySelector<HTMLElement>("#shortcuts-link")
+    ?.addEventListener("click", () => shortcuts.open());
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "?") return;
+    const target = e.target as HTMLElement | null;
+    // Don't hijack typing (e.g. the search box).
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    e.preventDefault();
+    shortcuts.toggle();
+  });
+}
+
+// --- Video clips ----------------------------------------------------------------
+// Records a playback as a captioned video (ClipRecorder.ts, loaded on first
+// use): the story card's Save video, and the More menu's for the layer on
+// screen from the month on screen. Recording stops when the playback does, at
+// its end or when the reader pauses, and the file downloads.
+/** The layer's part of a clip's caption: what it measures, and its source. */
+function clipLayerCaption() {
+  const layer = LAYERS[currentLayer];
+  const spec = LEGENDS[currentLayer];
+  const dataset = layer.dataset;
+  return {
+    layerId: currentLayer,
+    measures: spec.measures,
+    legend:
+      spec.kind === "classes"
+        ? undefined
+        : {
+            measures: spec.measures,
+            stops: spec.stops,
+            ticks: legendTicks(currentLayer),
+          },
+    cite: dataset
+      ? `NASA GIBS · ${dataset.shortName}${dataset.doi ? ` · doi:${dataset.doi}` : ""}`
+      : `NASA GIBS · ${layer.wmsLayer}`,
+  };
+}
+
+let clipBusy = false;
+function saveClip(subject: ClipSubject): Promise<void> {
+  if (clipBusy) return Promise.resolve();
+  clipBusy = true;
+  timelineEl?.classList.add("is-recording");
+  return import("./ui/ClipRecorder")
+    .then(
+      (clip) =>
+        clip.saveClip(
+          {
+            source: renderer.domElement,
+            onFrame: (draw) => {
+              frameHooks.add(draw);
+              return () => frameHooks.delete(draw);
+            },
+            ...clipLayerCaption(),
+            month: () => months[currentIndex],
+            monthLabel: () =>
+              formatTimelineLabel(LAYERS[currentLayer], months[currentIndex]),
+            isPlaying: () => playing,
+            playbackEnded: nextPlaybackEnd,
+            announce: (message) => announcer.announce(message),
+            toast: (message) => errorToast.show(message),
+            version: __APP_VERSION__,
+          },
+          subject
+        ),
+      () =>
+        errorToast.show(
+          "Couldn't load the video recorder. Check the connection and try again."
+        )
+    )
+    .finally(() => {
+      clipBusy = false;
+      timelineEl?.classList.remove("is-recording");
+    });
+}
+
+document
+  .querySelector<HTMLElement>("#clip-link")
+  ?.addEventListener("click", () => {
+    void saveClip({
+      title: plainLayerName(currentLayer),
+      slug: currentLayer,
+      play: () => {
+        timeSlider?.pause();
+        timeSlider?.play();
+      },
+    });
+  });
+
+// --- Stories -------------------------------------------------------------------
+// Curated time-lapses (lib/stories.ts): each switches the layer, flies to its
+// place and plays its months, with a card saying what to watch for. A first
+// visit with nothing to go on is offered them in one line; a shared
+// `#story=…` link plays its story once the first imagery is up. The card and
+// the stories' data load only then (a one-line invitation is plain markup),
+// so they cost the entry chunk nothing.
+const storiesEl = document.querySelector<HTMLElement>("#stories");
+if (storiesEl) {
+  // Overlays a story switched on, to switch back off when story mode ends,
+  // and the playback it scheduled for after the camera arrives.
+  let storyOverlays: string[] = [];
+  let storyStart: ReturnType<typeof setTimeout> | undefined;
+  const handlers: StoryCardHandlers = {
+    save: (story, replay) =>
+      saveClip({
+        title: story.title,
+        subtitle: plainLayerName(story.layer),
+        slug: story.id,
+        play: replay,
+      }),
+    announce: (message) => announcer.announce(message),
+    play: (story) => {
+      dismissIntro();
+      clearTimeout(storyStart);
+      // A story is its own view. Leaving a searched place in the hash would
+      // reopen that chart on top of the story the link claims to play.
+      clearSharedSearch();
+      if (currentLayer !== story.layer) {
+        switchLayer(story.layer, { fromStory: true });
+      } else {
+        closeProbe?.();
+        compareControls?.exit();
+      }
+      for (const id of story.overlays ?? []) {
+        if (toolbar?.press(id, true)) storyOverlays.push(id);
+      }
+      endFlight();
+      flyer.flyTo(
+        story.camera.lat,
+        story.camera.lon,
+        EARTH_RADIUS + story.camera.alt
+      );
+      const from = nearestMonthIndex(months, story.from);
+      const to = nearestMonthIndex(months, story.to);
+      timeSlider?.pause();
+      // Play once the camera has arrived, so the story opens on its place
+      // rather than on the flight there (instant under reduced motion).
+      storyStart = setTimeout(
+        () => timeSlider?.playRange(from, to),
+        reduceMotion ? 0 : 1500
+      );
+      scheduleHashSync();
+    },
+    end: () => {
+      clearTimeout(storyStart);
+      timeSlider?.pause();
+      for (const id of storyOverlays) toolbar?.press(id, false);
+      storyOverlays = [];
+      scheduleHashSync();
+    },
+  };
+  let loadingCard: Promise<StoryCard | undefined> | undefined;
+  const withCard = (use: (card: StoryCard) => void): void => {
+    loadingCard ??= import("./ui/StoryCard").then(
+      ({ StoryCard: Card }) => (storyCard = new Card(storiesEl, handlers)),
+      () => {
+        loadingCard = undefined; // the next ask tries again
+        errorToast.show(
+          "Couldn't load the stories. Check the connection and try again."
+        );
+        return undefined;
+      }
+    );
+    void loadingCard.then((card) => card && use(card));
+  };
+
+  playStory = (id) => {
+    dismissIntro();
+    withCard((card) => card.showById(id));
+  };
+  // Search asks for a story by id. Same path as a view card: retire the intro.
+  openStory = playStory;
+
+  presentEvent = (event) => {
+    if (!event.storyId) {
+      seekEvent(event);
+      return;
+    }
+    const storyId = event.storyId;
+    withCard((card) => {
+      if (!card.showById(storyId)) seekEvent(event);
+    });
+  };
+  document
+    .querySelector<HTMLElement>("#stories-link")
+    ?.addEventListener("click", () => {
+      dismissIntro();
+      withCard((card) => card.show(0));
+    });
+
+  const intro = document.querySelector<HTMLElement>("#intro");
+  const introCaption = intro?.querySelector<HTMLElement>(".intro__caption");
+  intro
+    ?.querySelector<HTMLButtonElement>("#intro-skip")
+    ?.addEventListener("click", () => {
+      dismissIntro();
+      // The tour has already stepped into older months by the time Skip is
+      // pressed. Skipping it means "show me now": the newest published month.
+      timeSlider?.seek(months.length - 1);
+    });
+
+  // A returning visitor has a session; a first visit with a bare URL has
+  // nothing to go on. The caption plays once, and Skip (or any card) retires
+  // it for good (lib/storiesWelcome.ts).
+  const firstVisit =
+    storedSession.layer === undefined && !window.location.hash.slice(1);
+  afterFirstLoad.push(() => {
+    const story = initialView.story;
+    if (story) withCard((card) => card.showById(story));
+    else if (firstVisit && intro && !storiesWelcomed()) {
+      const phone = window.matchMedia(
+        "(max-width: 540px), (max-height: 460px)"
+      ).matches;
+      if (introCaption) {
+        introCaption.textContent = phone
+          ? "This is how green the planet was over the last couple of years. Skip this, or open Map and tap a picture."
+          : "This is how green the planet was over the last couple of years. Skip this, or tap a picture on the right.";
+      }
+      intro.hidden = false;
+      // The curtain fades for 0.6s after this runs. Waiting past that keeps
+      // the month still until a test (or a person) has had a chance to skip,
+      // and then the tour itself lasts about ten seconds.
+      introTimer = setTimeout(() => {
+        if (!reduceMotion) {
+          const end = currentIndex;
+          timeSlider?.playRange(Math.max(0, end - 24), end);
+        }
+        introStop = setTimeout(() => dismissIntro(), 10_000);
+      }, 1600);
+    }
+  });
+}
+
+// --- Uncaught-error surface -----------------------------------------------------
+// Failures must be visible in the field, not just in the console. Expected
+// noise (aborted fetches from scrubbing/typing fast) is filtered out.
+// (errorToast is constructed early, up by the overlays, so the geolocation
+// overlay can report a denied permission through it.)
+window.addEventListener("error", (e) => {
+  errorToast.show(`Something went wrong: ${e.message}`);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  if (isAbortError(e.reason)) return;
+  // Offline fast-fails are expected while disconnected — the banner below
+  // already tells that story; a toast per background prefetch would be spam.
+  if (e.reason instanceof OfflineError) return;
+  const message =
+    e.reason instanceof Error ? e.reason.message : String(e.reason);
+  errorToast.show(`Something went wrong: ${message}`);
+});
+
+// --- Connectivity awareness ------------------------------------------------------
+// Field connectivity churns (trains, planes, remote sites). While offline the
+// fetch layer fast-fails (see lib/net.ts OfflineError) and a quiet banner says
+// why nothing new is loading; on reconnect the banner drops and the current
+// view refreshes itself — failed months aren't cached, so a refreshGlobe()
+// genuinely refetches.
+// The `role="status"` root stays rendered and empty; the pill is what gets
+// inserted. Toggling `hidden` on the region itself was silent to assistive
+// technology: a `display: none` live region is outside the accessibility
+// tree, and the banner's text never changed after construction, so going
+// offline mutated nothing a screen reader could announce.
+const offlineBanner = document.createElement("div");
+offlineBanner.className = "offline-banner";
+offlineBanner.setAttribute("role", "status");
+document.body.appendChild(offlineBanner);
+
+const offlineBannerPill = document.createElement("span");
+offlineBannerPill.className = "offline-banner__pill";
+offlineBannerPill.textContent = "Offline — showing last loaded imagery";
+
+function setOfflineBannerShown(shown: boolean): void {
+  // Guard: re-appending an identical node would re-announce it.
+  if (shown === offlineBannerPill.isConnected) return;
+  if (shown) offlineBanner.appendChild(offlineBannerPill);
+  else offlineBannerPill.remove();
+}
+
+window.addEventListener("offline", () => {
+  setOfflineBannerShown(true);
+});
+window.addEventListener("online", () => {
+  setOfflineBannerShown(false);
+  refreshGlobe();
+  if (studyRegion.active) studyRegion.setMonth(months[currentIndex]);
+});
+if (!isOnline()) setOfflineBannerShown(true);
+
+// --- WebGL context loss/recovery ---------------------------------------------
+// A GPU reset, driver update, or aggressive mobile backgrounding can kill the
+// context mid-session. preventDefault() on `lost` tells the browser we intend
+// to handle restoration; three.js re-uploads GPU resources on `restored`, and
+// a refreshGlobe() re-drives the texture pipeline for the current view.
+canvas.addEventListener("webglcontextlost", (e) => {
+  e.preventDefault();
+  setStatus("Graphics context lost — recovering…");
+});
+canvas.addEventListener("webglcontextrestored", () => {
+  setStatus("");
+  refreshGlobe();
+});
+
+// --- Adaptive resolution -------------------------------------------------------
+// Weak GPUs (old lab machines, software rendering) can't hold 60 fps at full
+// devicePixelRatio. Measure FPS over ~2 s windows and trade resolution for
+// interactivity (pure decision logic in lib/perf.ts).
+const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2);
+let fpsWindowStart = performance.now();
+let fpsFrames = 0;
+function adaptResolution(now: number): void {
+  fpsFrames++;
+  const elapsed = now - fpsWindowStart;
+  if (elapsed < 2000) return;
+  const fps = (fpsFrames * 1000) / elapsed;
+  fpsWindowStart = now;
+  fpsFrames = 0;
+  const current = renderer.getPixelRatio();
+  const target = nextPixelRatio(current, fps, undefined, MAX_PIXEL_RATIO);
+  if (target !== current) {
+    renderer.setPixelRatio(target);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+}
+
+// --- Render loop ------------------------------------------------------------
+// Set while a close view has hidden the HD-tile patches so the terrain drape
+// can show. Cleared by restoring the toolbar's own on/off choice.
+let hdHeldForDrape = false;
+let atmosphereHeldForClose = false;
+const timer = new THREE.Timer();
+let signalledReady = false;
+let wasFlying = false;
+const renderFrame = (): void => {
+  timer.update();
+  const delta = timer.getDelta();
+  flyer.update(delta);
+  // A flight owns the camera. A wheel glide coasts only once the flight
+  // has handed it back; the controls update below adopts the new altitude.
+  if (flyer.isFlying) zoomTarget = null;
+  else tickAltitudeZoom(delta);
+  const aim = vector3ToLatLng(camera.position);
+  // Drag speed follows the camera altitude, so the ground under the cursor
+  // tracks the drag at street-level zoom and orbit alike.
+  controls.rotateSpeed = rotateSpeedForDistance(
+    camera.position.length(),
+    aim.lat
+  );
+  if (!flyer.isFlying) controls.update(); // flyer drives the camera while active
+  // A flight owns the camera. Otherwise a thrown globe coasts on from here.
+  if (flyer.isFlying) momentum.stop();
+  else momentum.tick(performance.now());
+  // OrbitControls only knows a spherical floor. Push back out to the ground
+  // under this latitude, and pull the clip planes in so a street view is not
+  // sliced off by the orbital near plane.
+  enforceCameraLimits();
+  // Flights move the camera without OrbitControls events — sync the shareable
+  // hash once when a fly-to lands.
+  if (wasFlying && !flyer.isFlying) {
+    endFlight(); // landed: re-assert the drawer's hold on the drag if armed
+    scheduleHashSync();
+  }
+  wasFlying = flyer.isFlying;
+  highlight.update(camera.position.length()); // keep the marker a constant size
+  frameComparePins(camera);
+  for (const overlay of overlays) overlay.update?.(camera, window.innerHeight);
+  // Up close the month is draped on the terrain, so the sphere must not
+  // cover it. It stays in the scene: hover, probe, and region drawing
+  // raycast it. HD tiles are sphere patches and would hide the relief, so
+  // they step aside for the drape and return to whatever the toolbar asked.
+  const scienceDraped =
+    terrainGlobe?.update(
+      compare.showing,
+      !overlayState.has("hd"),
+      zoomTarget
+    ) ?? false;
+  earth.material.colorWrite = !scienceDraped;
+  earth.material.depthWrite = !scienceDraped;
+  if (scienceDraped) {
+    hdTiles.object.visible = false;
+    hdHeldForDrape = true;
+  } else if (hdHeldForDrape) {
+    hdTiles.object.visible = overlayState.has("hd");
+    hdHeldForDrape = false;
+  }
+  // The glow is a shell around the globe. Inside it, the back faces cover
+  // the whole view. Step aside up close and return to the toolbar's choice.
+  if (camera.position.length() < ATMOSPHERE_HIDE_AT) {
+    if (atmosphereOverlay.object.visible) atmosphereHeldForClose = true;
+    atmosphereOverlay.object.visible = false;
+  } else if (atmosphereHeldForClose) {
+    atmosphereOverlay.object.visible = overlayState.has("atmosphere");
+    atmosphereHeldForClose = false;
+  }
+  // HD tiles only ever stream the live month, so a comparison suppresses them
+  // on both sides and both months render from their own full-globe texture —
+  // a like-for-like split (see CompareController.renderSplit).
+  if (compare.showing) {
+    compare.renderSplit(renderer, scene, camera, [hdTiles.object]);
+  } else {
+    renderer.render(scene, camera);
+  }
+  // Read the drawing buffer while it is still this frame's (a clip recording).
+  for (const draw of frameHooks) draw();
+  trendBridge?.updateFrame();
+
+  if (!signalledReady) {
+    signalledReady = true;
+    window.__APP_READY__ = true;
+  }
+  adaptResolution(performance.now());
+};
+renderer.setAnimationLoop(renderFrame);
+window.__RENDER_ACTIVE__ = true;
+// Read-only GPU-resource counters for the soak e2e (see e2e/soak.spec.ts):
+// un-disposed textures/geometries survive GC and accumulate until the WebGL
+// context dies, so the leak canary watches the renderer's own bookkeeping.
+window.__RENDERER_STATS__ = () => ({
+  textures: renderer.info.memory.textures,
+  geometries: renderer.info.memory.geometries,
+});
+
+// Pause rendering while the tab is hidden — no reason to burn GPU/battery on
+// a globe nobody can see. Data work (freshness probe, in-flight sampling) is
+// untouched; only drawing stops. The timer resets on resume so the hidden gap
+// never lands as one giant delta (which would teleport an in-flight flight).
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    renderer.setAnimationLoop(null);
+    window.__RENDER_ACTIVE__ = false;
+  } else {
+    timer.reset();
+    // Restart the FPS window too — the hidden gap must not read as low FPS.
+    fpsWindowStart = performance.now();
+    fpsFrames = 0;
+    renderer.setAnimationLoop(renderFrame);
+    window.__RENDER_ACTIVE__ = true;
+  }
+});
+
+// --- Resize handling --------------------------------------------------------
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// --- Helpers ----------------------------------------------------------------
+/**
+ * The status row doubles as the timeline's resting caption. Transient text
+ * (loading, failures) wins while it lasts; the moment it clears, the row goes
+ * back to saying how current the layer actually is — see ui/dataCurrency.ts
+ * for why the silence there was read as a fault.
+ */
+function setStatus(text: string): void {
+  if (!statusEl) return;
+  const note = dataCurrencyNote(
+    LAYERS[currentLayer],
+    months[months.length - 1],
+    utcYearMonth()
+  );
+  const next = text || note.text;
+  // The row is aria-live: rewriting identical text re-announces it, and this
+  // runs on every settled imagery load (i.e. every scrub).
+  if (statusEl.textContent !== next) statusEl.textContent = next;
+  const detail = text ? "" : note.detail;
+  if (statusEl.title !== detail) statusEl.title = detail;
+  // The status dot: green when the record is as new as the product can be,
+  // amber for a publication delay, none while transient text holds the row.
+  const currency = text ? "" : note.fresh ? "fresh" : "delayed";
+  if (currency) statusEl.dataset.currency = currency;
+  else delete statusEl.dataset.currency;
+}
+
+function createStarfield(): THREE.Points {
+  const starCount = 1500;
+  const positions = new Float32Array(starCount * 3);
+
+  for (let i = 0; i < starCount; i++) {
+    // Scatter stars on a large sphere shell around the scene.
+    const r = 40 + Math.random() * 30;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.12,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.8,
+  });
+
+  return new THREE.Points(geometry, material);
+}

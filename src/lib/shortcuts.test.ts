@@ -1,0 +1,77 @@
+import { describe, it, expect } from "vitest";
+import { SHORTCUT_GROUPS } from "./shortcuts";
+
+describe("SHORTCUT_GROUPS", () => {
+  it("has titled groups with non-empty entries", () => {
+    expect(SHORTCUT_GROUPS.length).toBeGreaterThanOrEqual(2);
+    for (const group of SHORTCUT_GROUPS) {
+      expect(group.title.length).toBeGreaterThan(0);
+      expect(group.items.length).toBeGreaterThan(0);
+      for (const item of group.items) {
+        expect(item.keys.length).toBeGreaterThan(0);
+        for (const key of item.keys) expect(key.length).toBeGreaterThan(0);
+        expect(item.does.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("documents the timeline bindings that ui/TimeSlider.ts implements", () => {
+    const all = SHORTCUT_GROUPS.flatMap((g) => g.items.flatMap((i) => i.keys));
+    for (const key of ["←", "→", "PgUp", "PgDn", "Home", "End", "Space"]) {
+      expect(all, `missing "${key}"`).toContain(key);
+    }
+  });
+
+  it("documents the globe bindings main.ts implements on the canvas", () => {
+    const globe = SHORTCUT_GROUPS.find((g) => g.title.startsWith("Globe"));
+    const does = globe?.items.map((i) => i.does).join(" ") ?? "";
+    const keys = globe?.items.flatMap((i) => i.keys) ?? [];
+    // Every globe gesture has a keyboard equivalent — the canvas declares
+    // role="application", which promises exactly that.
+    expect(does).toContain("←");
+    expect(does).toContain("+");
+    expect(keys).toContain("Enter");
+  });
+
+  it("documents the keyboard half of the draw-region gesture", () => {
+    const draw = SHORTCUT_GROUPS.find((g) => g.title.startsWith("Draw region"));
+    const does = draw?.items.map((i) => i.does).join(" ") ?? "";
+    // scene/RegionDrawer.markCorner: two Enter presses with arrows between
+    // them are the drag a keyboard can make. If that ever stops working, this
+    // group is a promise the app no longer keeps.
+    expect(draw, "no draw-region group").toBeDefined();
+    expect(does).toContain("corner");
+    expect(draw?.items.flatMap((i) => i.keys)).toContain("Enter");
+  });
+
+  it("documents the compare-divider bindings ui/CompareControls.ts implements", () => {
+    const compare = SHORTCUT_GROUPS.find((g) => g.title.startsWith("Compare"));
+    const keys = compare?.items.flatMap((i) => i.keys) ?? [];
+    // The handle is a focusable role="separator" (a window splitter), so the
+    // sweep has a keyboard equivalent. If that ever stops working, this group
+    // is a promise the app no longer keeps.
+    expect(compare, "no compare group").toBeDefined();
+    expect(compare?.title).toContain("Tab");
+    for (const key of ["←", "→", "Home", "End"]) {
+      expect(keys, `missing "${key}"`).toContain(key);
+    }
+  });
+
+  it("documents place search, including Enter on the top match", () => {
+    const search = SHORTCUT_GROUPS.find((g) => g.title === "Search");
+    expect(search, "no search group").toBeDefined();
+    const does = search?.items.map((i) => i.does).join(" ") ?? "";
+    const keys = search?.items.flatMap((i) => i.keys) ?? [];
+    expect(keys).toContain("/");
+    expect(keys).toContain("Ctrl+K");
+    expect(keys).toContain("Enter");
+    expect(keys).toContain("Esc");
+    expect(does).toContain("top match");
+  });
+
+  it("documents how to open and close the overlay itself", () => {
+    const all = SHORTCUT_GROUPS.flatMap((g) => g.items.flatMap((i) => i.keys));
+    expect(all).toContain("?");
+    expect(all).toContain("Esc");
+  });
+});

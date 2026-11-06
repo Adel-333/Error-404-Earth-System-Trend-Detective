@@ -1,0 +1,305 @@
+import { greatCircleDistance } from "./geo";
+import { GVP_VOLCANO_SOURCE, VOLCANO_CONTEXT_UNITS } from "./volcanoContext";
+import { qualifiedVolcanoTypeLabel } from "./volcanoMorphology";
+import {
+  eruptionClass,
+  lastEruptionLabel,
+  type EruptionClass,
+  type Volcano,
+} from "./volcanoes";
+
+/**
+ * Source-aware place context for the Smithsonian GVP Holocene volcano overlay.
+ *
+ * The helper selects only supplied volcano records whose summits fall within a
+ * requested great-circle radius of a query point, orders them nearest first,
+ * and names the nearest. It is render-free so a place panel, an export, or
+ * another UI can share the same evidence and coverage contract without treating
+ * a nearby volcano as an eruption forecast or a hazard assessment.
+ *
+ * This mirrors the nearby-seismicity contract in earthquakeContext.ts: it is a
+ * spatial inventory around a point, not a statement about the selected boundary
+ * itself and not a completeness claim about the catalog.
+ */
+
+export const GVP_HOLOCENE_VOLCANO_SOURCE = {
+  ...GVP_VOLCANO_SOURCE,
+  catalog:
+    "Holocene volcanoes (eruptions within roughly the last 10,000 years)",
+} as const;
+
+export const VOLCANO_PROXIMITY_UNITS = {
+  ...VOLCANO_CONTEXT_UNITS,
+  distance: "km (summit great-circle distance)",
+  radius: "km (summit great-circle radius)",
+} as const;
+
+export interface VolcanoProximityQuery {
+  latitude: number;
+  longitude: number;
+  /** Inclusive radius around the query location, measured along Earth's surface. */
+  radiusKm: number;
+}
+
+export interface NearbyVolcanoObservation {
+  name: string;
+  country: string | null;
+  /** GVP primary volcano type, retained verbatim, e.g. "Stratovolcano". */
+  primaryType: string | null;
+  elevationMeters: number | null;
+  lastEruptionYear: number | null;
+  lastEruptionText: string;
+  eruptionClass: EruptionClass;
+  /** Summit great-circle distance from the query point. */
+  distanceKm: number;
+}
+
+export type VolcanoProximityStatus =
+  | "available"
+  | "no-volcanoes-in-radius"
+  | "no-usable-volcanoes"
+  | "invalid-query";
+
+export type VolcanoProximityQueryField = "latitude" | "longitude" | "radiusKm";
+
+/**
+ * Coverage is scoped to the record array supplied to this helper. A count of
+ * zero matched records does not establish that a place is volcanically inactive.
+ */
+export interface VolcanoProximityCoverage {
+  status: VolcanoProximityStatus;
+  suppliedRecordCount: number;
+  validRecordCount: number;
+  matchedRecordCount: number;
+  invalidQueryFields: VolcanoProximityQueryField[];
+}
+
+export interface VolcanoProximityContext {
+  kind: "gvp-nearby-volcano-context";
+  isForecast: false;
+  query: VolcanoProximityQuery;
+  observations: NearbyVolcanoObservation[];
+  /** The nearest matched volcano, or null when none fall within the radius. */
+  nearest: NearbyVolcanoObservation | null;
+  coverage: VolcanoProximityCoverage;
+  provenance: typeof GVP_HOLOCENE_VOLCANO_SOURCE;
+  units: typeof VOLCANO_PROXIMITY_UNITS;
+  limitations: readonly string[];
+}
+
+const LIMITATIONS = [
+  "Describes only valid records supplied to this helper; no matching volcano does not establish that a location is volcanically inactive.",
+  "The bundled dataset is the GVP Holocene inventory, not a complete record of every volcanic feature or vent.",
+  "Distances are summit great-circle distances on a mean-radius Earth; they do not account for edifice extent, flow reach, or any hazard footprint.",
+  "Does not forecast eruptions, rank hazards, score risk, or infer causes.",
+] as const;
+
+const EARTH_RADIUS_KM = 6_371;
+
+/**
+ * Build source-aware nearby-volcano context for a place. Matches at the radius
+ * boundary are included; results are ordered nearest first, then by most recent
+ * known eruption when distances tie, then by name for a stable order.
+ */
+export function nearbyVolcanoContext(
+  volcanoes: readonly Volcano[],
+  query: VolcanoProximityQuery
+): VolcanoProximityContext {
+  const valid = volcanoes.filter(isValidVolcano);
+  const invalidQueryFields = queryValidationErrors(query);
+  const observations =
+    invalidQueryFields.length === 0 ? matchingObservations(valid, query) : [];
+  const status: VolcanoProximityStatus =
+    invalidQueryFields.length > 0
+      ? "invalid-query"
+      : observations.length > 0
+        ? "available"
+        : valid.length === 0
+          ? "no-usable-volcanoes"
+          : "no-volcanoes-in-radius";
+
+  return {
+    kind: "gvp-nearby-volcano-context",
+    isForecast: false,
+    query,
+    observations,
+    nearest: observations[0] ?? null,
+    coverage: {
+      status,
+      suppliedRecordCount: volcanoes.length,
+      validRecordCount: valid.length,
+      matchedRecordCount: observations.length,
+      invalidQueryFields,
+    },
+    provenance: GVP_HOLOCENE_VOLCANO_SOURCE,
+    units: VOLCANO_PROXIMITY_UNITS,
+    limitations: LIMITATIONS,
+  };
+}
+
+function matchingObservations(
+  volcanoes: readonly Volcano[],
+  query: VolcanoProximityQuery
+): NearbyVolcanoObservation[] {
+  return volcanoes
+    .map((volcano) => toObservation(volcano, query))
+    .filter((observation) => observation.distanceKm <= query.radiusKm)
+    .sort(compareObservations);
+}
+
+function toObservation(
+  volcano: Volcano,
+  query: VolcanoProximityQuery
+): NearbyVolcanoObservation {
+  return {
+    name: volcano.name,
+    country: volcano.country,
+    primaryType: volcano.type,
+    elevationMeters: volcano.elevation,
+    lastEruptionYear: volcano.lastEruptionYear,
+    lastEruptionText: lastEruptionLabel(volcano.lastEruptionYear),
+    eruptionClass: eruptionClass(volcano.lastEruptionYear),
+    distanceKm: greatCircleDistance(
+      query.latitude,
+      query.longitude,
+      volcano.lat,
+      volcano.lon,
+      EARTH_RADIUS_KM
+    ),
+  };
+}
+
+function compareObservations(
+  first: NearbyVolcanoObservation,
+  second: NearbyVolcanoObservation
+): number {
+  return (
+    first.distanceKm - second.distanceKm ||
+    recencyRank(second.lastEruptionYear) -
+      recencyRank(first.lastEruptionYear) ||
+    first.name.localeCompare(second.name, "en-US")
+  );
+}
+
+/**
+ * Order key for "most recent eruption": a known year sorts by the year itself,
+ * and a null year (Holocene evidence only, with no dated eruption) sorts as the
+ * least recent. This never averages or invents a year — it only ranks records
+ * that already have one ahead of those that do not.
+ */
+function recencyRank(lastEruptionYear: number | null): number {
+  return lastEruptionYear ?? Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * Fixed comparison radius for a place readout's nearest-volcano statement.
+ *
+ * A search bounding box is a geocoder artefact: its size tracks how large the
+ * matched administrative boundary happens to be, not anything geological. "No
+ * volcanoes in the extent" is therefore not comparable between one place and
+ * the next — a city with a tight boundary can report nothing while a Holocene
+ * edifice sits just outside it. Quoting the nearest catalogued volcano inside a
+ * fixed, stated radius gives a reproducible statement instead.
+ *
+ * 100 km is an arbitrary but declared cutoff chosen so the same question is
+ * asked at every place. It is not a hazard distance, an exclusion zone, or any
+ * claim about how far an eruption's products travel.
+ */
+export const NEAREST_VOLCANO_RADIUS_KM = 100;
+
+/**
+ * Build the query a place readout uses: {@link NEAREST_VOLCANO_RADIUS_KM}
+ * around the coordinates the geocoder returned for the searched place.
+ *
+ * Fixing the radius here rather than at the call site keeps the declared cutoff
+ * with the reasoning above that chose it. The point matters just as much, and
+ * is the reason this constructor names it: a place search yields two different
+ * points — the geocoder's representative point for the place, and the centre of
+ * the bounding box it also returns — and one panel quotes distances from both.
+ * This distance and the nearest-plate-boundary distance are measured from the
+ * geocoded point; the seismicity search is centred on the extent midpoint
+ * instead (see `searchExtentEarthquakeQuery` in earthquakeContext.ts). The two
+ * are routinely far apart, because a bounding box tracks the shape of the
+ * matched administrative boundary rather than where the place itself sits:
+ * across sixteen sampled Nominatim results they were more than 1 km apart for
+ * eleven and more than 10 km apart for seven, reaching 982 km for "Tokyo",
+ * whose extent runs out to the Ogasawara Islands.
+ *
+ * {@link nearestVolcanoStatement} therefore names this point instead of calling
+ * it "the search centre", which reads as the extent midpoint it is not.
+ */
+export function placePointVolcanoQuery(
+  latitude: number,
+  longitude: number
+): VolcanoProximityQuery {
+  return { latitude, longitude, radiusKm: NEAREST_VOLCANO_RADIUS_KM };
+}
+
+/**
+ * One-line nearest-volcano phrasing for a place readout whose in-extent
+ * inventory matched nothing.
+ *
+ * Returns null when the supplied context cannot support any statement — an
+ * invalid query, or a dataset that supplied no usable records — so callers keep
+ * their own coverage wording rather than printing an absence the evidence does
+ * not back. A "none within the radius" result is reported as exactly that, and
+ * never as volcanic inactivity.
+ *
+ * Both branches name the point the radius and the distance are measured from —
+ * the one {@link placePointVolcanoQuery} supplies — because the same panel also
+ * quotes seismicity distances measured from the centre of the search extent,
+ * and "the search centre" (this sentence's previous wording) does not
+ * distinguish the two.
+ */
+export function nearestVolcanoStatement(
+  context: VolcanoProximityContext
+): string | null {
+  const { status } = context.coverage;
+  if (status === "invalid-query" || status === "no-usable-volcanoes") {
+    return null;
+  }
+  const radius = formatDistanceKm(context.query.radiusKm);
+  if (context.nearest === null) {
+    return `No catalogued Holocene volcano lies within ${radius} km of the geocoded place point — the coordinates the geocoder returned for this place, not the centre of its bounding box; absence from the GVP inventory does not establish that a place is volcanically inactive.`;
+  }
+  const { name, distanceKm, primaryType, lastEruptionText } = context.nearest;
+  return `Nearest catalogued Holocene volcano within ${radius} km: ${name}, ${formatDistanceKm(distanceKm)} km from the geocoded place point (${qualifiedVolcanoTypeLabel(primaryType) ?? "primary type not supplied"}; ${lastEruptionText}). Summit great-circle distance, measured from the coordinates the geocoder returned for this place rather than from the centre of its bounding box, and not a hazard footprint.`;
+}
+
+/**
+ * Whole kilometres from 10 km up, one decimal below. The bundled summit
+ * coordinates are catalogue positions for an edifice several kilometres across,
+ * so finer precision would imply an accuracy the source does not carry.
+ */
+function formatDistanceKm(distanceKm: number): string {
+  return distanceKm >= 10
+    ? String(Math.round(distanceKm))
+    : distanceKm.toFixed(1);
+}
+
+function isValidVolcano(volcano: Volcano): boolean {
+  return (
+    typeof volcano.name === "string" &&
+    volcano.name.length > 0 &&
+    Number.isFinite(volcano.lat) &&
+    Math.abs(volcano.lat) <= 90 &&
+    Number.isFinite(volcano.lon) &&
+    Math.abs(volcano.lon) <= 180
+  );
+}
+
+function queryValidationErrors(
+  query: VolcanoProximityQuery
+): VolcanoProximityQueryField[] {
+  const invalid: VolcanoProximityQueryField[] = [];
+  if (!Number.isFinite(query.latitude) || Math.abs(query.latitude) > 90) {
+    invalid.push("latitude");
+  }
+  if (!Number.isFinite(query.longitude) || Math.abs(query.longitude) > 180) {
+    invalid.push("longitude");
+  }
+  if (!Number.isFinite(query.radiusKm) || query.radiusKm < 0) {
+    invalid.push("radiusKm");
+  }
+  return invalid;
+}

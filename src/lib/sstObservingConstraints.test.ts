@@ -1,0 +1,360 @@
+import { describe, it, expect } from "vitest";
+import {
+  SST_OBSERVING_CONSTRAINTS,
+  SST_OBSERVING_CONSTRAINT_LIMITS,
+  SST_OBSERVING_CONSTRAINT_SOURCE,
+  SST_SAMPLING_GATE_NOTE,
+  formatSstCaptionOmission,
+  probeSstSamplingGateClause,
+  sstCaptionConstraintOmissions,
+  sstObservingConstraintCsvHeaders,
+  summarizeSstObservingConstraints,
+  type SstObservingConstraintId,
+} from "./sstObservingConstraints";
+import { LAYERS, LAYER_ORDER } from "./timeline";
+
+describe("SST observing constraints", () => {
+  it("cites the SST layer's own dataset, not a restated copy", () => {
+    // Provenance discipline: a copied citation can drift from the layer it
+    // describes. This must be the same object the layer carries.
+    expect(SST_OBSERVING_CONSTRAINT_SOURCE).toBe(LAYERS.sst.dataset);
+  });
+
+  it("asserts constraints only for a daytime, thermal-infrared product", () => {
+    // Every constraint here follows from the cited product being a DAYTIME
+    // THERMAL-IR composite. If the SST layer is ever repointed at a product
+    // that is neither, these assertions no longer hold and must be revisited
+    // rather than silently inherited.
+    const title = LAYERS.sst.dataset?.title ?? "";
+    expect(title).toMatch(/daytime/i);
+    expect(title).toMatch(/thermal/i);
+  });
+
+  it("covers the three sampling gates exactly once each", () => {
+    const ids = SST_OBSERVING_CONSTRAINTS.map((entry) => entry.id);
+    expect(ids).toEqual([
+      "daytime-overpass-only",
+      "clear-sky-retrieval-only",
+      "near-surface-radiometric",
+    ]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("gives every constraint a non-empty constraint and implication", () => {
+    for (const entry of SST_OBSERVING_CONSTRAINTS) {
+      expect(entry.constraint.trim().length).toBeGreaterThan(0);
+      expect(entry.implication.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("asserts a direction only for the daytime overpass", () => {
+    // The daytime overpass samples near the diurnal maximum, so its sign is
+    // fixed by observing geometry and cannot lean cool. Clear-sky screening and
+    // surface-layer radiometry have regime-dependent signs, so asserting one
+    // would be a guess.
+    const directional = SST_OBSERVING_CONSTRAINTS.filter(
+      (entry) => entry.direction !== "not-asserted"
+    );
+    expect(directional.map((entry) => entry.id)).toEqual([
+      "daytime-overpass-only",
+    ]);
+    expect(directional[0].direction).toBe("warm-leaning");
+  });
+
+  it("never asserts an offset magnitude", () => {
+    // A daytime-versus-daily-mean offset depends on wind, insolation, and
+    // mixing that this app does not observe. Naming any number here — degrees,
+    // kelvin, or a percentage — would invent an uncertainty budget.
+    const prose = SST_OBSERVING_CONSTRAINTS.flatMap((entry) => [
+      entry.constraint,
+      entry.implication,
+    ]).join(" ");
+    expect(prose).not.toMatch(/\d+(\.\d+)?\s*(°|deg|K\b|kelvin|celsius|%)/i);
+  });
+
+  it("makes no biological, causal, hazard, or forecast claim", () => {
+    const prose = [
+      ...SST_OBSERVING_CONSTRAINTS.flatMap((entry) => [
+        entry.constraint,
+        entry.implication,
+      ]),
+      summarizeSstObservingConstraints().statement,
+      SST_SAMPLING_GATE_NOTE,
+    ].join(" ");
+    expect(prose).not.toMatch(
+      /\b(species|coral|bleach\w*|habitat|abundance|biomass|ecosystem|stress|hazard|risk|forecast|predict\w*|expected to|because of|caused by|due to)\b/i
+    );
+  });
+
+  it("summarizes without taking an observation", () => {
+    // The constraints hold for every value the product publishes. Deriving them
+    // from one month's sample would imply they were measured from it.
+    expect(summarizeSstObservingConstraints).toHaveLength(0);
+  });
+
+  it("reports the product as not representing the full diurnal cycle", () => {
+    const summary = summarizeSstObservingConstraints();
+    expect(summary.kind).toBe("sea-surface-temperature-observing-constraints");
+    expect(summary.isForecast).toBe(false);
+    expect(summary.marineBiologyObservation).toBe(false);
+    expect(summary.claimScope).toBe("product-observing-system-only");
+    expect(summary.representsFullDiurnalCycle).toBe(false);
+    expect(summary.constraints).toBe(SST_OBSERVING_CONSTRAINTS);
+    expect(summary.limits).toBe(SST_OBSERVING_CONSTRAINT_LIMITS);
+  });
+
+  it("derives directionalConstraintIds from the table, not a second list", () => {
+    const expected: SstObservingConstraintId[] =
+      SST_OBSERVING_CONSTRAINTS.filter(
+        (entry) => entry.direction !== "not-asserted"
+      ).map((entry) => entry.id);
+    expect(summarizeSstObservingConstraints().directionalConstraintIds).toEqual(
+      expected
+    );
+  });
+
+  it("carries the cited source in the accessible statement", () => {
+    const { statement } = summarizeSstObservingConstraints();
+    expect(statement).toContain(SST_OBSERVING_CONSTRAINT_SOURCE.shortName);
+    expect(statement).toContain(`v${SST_OBSERVING_CONSTRAINT_SOURCE.version}`);
+    // Each constraint reaches the reader; none is dropped by the join.
+    for (const entry of SST_OBSERVING_CONSTRAINTS) {
+      expect(statement).toContain(entry.constraint);
+      expect(statement).toContain(entry.implication);
+    }
+  });
+
+  it("keeps the display note short enough to sit inside a provenance line", () => {
+    // It is appended to an existing detail string, not given its own row.
+    expect(SST_SAMPLING_GATE_NOTE.length).toBeLessThanOrEqual(80);
+    expect(SST_SAMPLING_GATE_NOTE).not.toMatch(/[.;]$/);
+  });
+
+  it("names both gates the display note stands in for", () => {
+    // The note is the compressed form of the two sampling gates. If either is
+    // renamed or dropped, the note must not keep implying it.
+    expect(SST_SAMPLING_GATE_NOTE).toMatch(/daytime/i);
+    expect(SST_SAMPLING_GATE_NOTE).toMatch(/clear.sky/i);
+  });
+
+  it("returns a stable summary across calls", () => {
+    expect(summarizeSstObservingConstraints()).toEqual(
+      summarizeSstObservingConstraints()
+    );
+  });
+});
+
+describe("probe sampling-gate clause", () => {
+  it("qualifies a sea-surface-temperature record that reported statistics", () => {
+    // The probe's min/mean/max/trend are all computed from daytime, cloud-
+    // screened retrievals; nothing in the values themselves says so.
+    expect(probeSstSamplingGateClause("sst", true)).toBe(
+      SST_SAMPLING_GATE_NOTE
+    );
+  });
+
+  it("stays silent for every layer but SST", () => {
+    // The constraints are asserted for one product only. A land or atmosphere
+    // record must not inherit an ocean product's sampling gate.
+    for (const layerId of LAYER_ORDER.filter((id) => id !== "sst")) {
+      expect(probeSstSamplingGateClause(layerId, true)).toBe("");
+    }
+  });
+
+  it("stays silent when no statistic was reported", () => {
+    // The note qualifies a displayed number. With none on screen there is
+    // nothing to qualify, and an empty record already states its own reason.
+    expect(probeSstSamplingGateClause("sst", false)).toBe("");
+  });
+
+  it("stays silent when the sampled layer is unknown", () => {
+    // The probe context is optional; an absent layer id must not be guessed
+    // into the one product these constraints hold for.
+    expect(probeSstSamplingGateClause(undefined, true)).toBe("");
+  });
+
+  it("claims nothing biological, and no magnitude or direction", () => {
+    // A sampling gate is a statement about an instrument and an orbit. The
+    // offset's size depends on wind, insolation and mixing this app never
+    // observes, so the clause names the sampling and stops.
+    const clause = probeSstSamplingGateClause("sst", true);
+    expect(clause).not.toMatch(
+      /species|habitat|ecosystem|biolog|bleach|heatwave|stress|warmer|cooler|°/i
+    );
+  });
+
+  it("reads as a clause, not a sentence, for the ` · ` status line", () => {
+    // It is joined into an existing line of statistics rather than appended
+    // as its own sentence.
+    const clause = probeSstSamplingGateClause("sst", true);
+    expect(clause).not.toMatch(/[.;]$/);
+    expect(clause[0]).toBe(clause[0].toLowerCase());
+  });
+});
+
+describe("sstCaptionConstraintOmissions", () => {
+  it("passes the caption the app actually ships", () => {
+    // The guard exists to keep this true. `Legend` renders the description
+    // verbatim under the globe, so a regression here ships to every reader who
+    // never opens the probe.
+    expect(
+      sstCaptionConstraintOmissions().map(formatSstCaptionOmission)
+    ).toEqual([]);
+  });
+
+  it("catches a caption that states the diurnal gate but not the cloud one", () => {
+    // The defect this fixed: one of two co-equal sampling gates named, which
+    // reads as the complete qualification rather than half of it.
+    const omissions = sstCaptionConstraintOmissions(
+      "Daytime ocean surface temperature (MODIS/Aqua thermal)."
+    );
+    expect(omissions.map((o) => o.constraintId)).toEqual([
+      "clear-sky-retrieval-only",
+    ]);
+    // The message quotes the constraint table rather than restating it, so the
+    // two can never drift into disagreeing about the same product.
+    const entry = SST_OBSERVING_CONSTRAINTS.find(
+      (c) => c.id === "clear-sky-retrieval-only"
+    )!;
+    expect(omissions[0].constraint).toBe(entry.constraint);
+    expect(omissions[0].implication).toBe(entry.implication);
+  });
+
+  it("catches a caption that drops both sampling gates", () => {
+    const omissions = sstCaptionConstraintOmissions(
+      "Ocean surface temperature."
+    );
+    expect(omissions.map((o) => o.constraintId)).toEqual([
+      "daytime-overpass-only",
+      "clear-sky-retrieval-only",
+    ]);
+  });
+
+  it("accepts any declared surface form of a gate", () => {
+    // Wording is a copy decision; the check is about what was said, not how.
+    for (const cloudPhrase of ["clear sky", "cloud-free", "cloud-screened"]) {
+      expect(
+        sstCaptionConstraintOmissions(
+          `Daylight ${cloudPhrase} ocean surface temp.`
+        )
+      ).toEqual([]);
+    }
+  });
+
+  it("never requires the radiometric-depth constraint in the caption", () => {
+    // Deliberate: it is about what is sensed rather than which moments
+    // contribute, and it is stated in full on the probe, the place card and the
+    // CSV. A one-sentence caption that tried to carry everything would push the
+    // sampling gates out.
+    const omissions = sstCaptionConstraintOmissions("Daytime clear-sky ocean.");
+    expect(omissions.map((o) => o.constraintId)).not.toContain(
+      "near-surface-radiometric"
+    );
+  });
+
+  it("matches case-insensitively", () => {
+    expect(
+      sstCaptionConstraintOmissions(
+        "DAYTIME CLEAR-SKY OCEAN SURFACE TEMPERATURE."
+      )
+    ).toEqual([]);
+  });
+
+  it("claims nothing biological and asserts no magnitude", () => {
+    // A caption audit reports which gate is unstated. It says nothing about how
+    // large either gate's effect is, or about anything alive.
+    const messages = sstCaptionConstraintOmissions("Ocean surface temperature.")
+      .map(formatSstCaptionOmission)
+      .join(" ");
+    expect(messages).not.toMatch(
+      /species|habitat|ecosystem|biolog|bleach|heatwave|forecast|°/i
+    );
+  });
+
+  it("keeps the shipped caption inside the layer-caption length convention", () => {
+    // The captions render on one line under the globe; 71 characters is the
+    // longest the app ships, and the SST one must not become the new record.
+    expect(LAYERS.sst.description.length).toBeLessThanOrEqual(71);
+  });
+});
+
+describe("sstObservingConstraintCsvHeaders", () => {
+  const headers = sstObservingConstraintCsvHeaders("sst");
+
+  it("states the clear-sky gate the exported file was missing", () => {
+    // The gate that decides which *days* contributed reached the status line,
+    // the place card and the CI-asserted caption, and never the download.
+    const text = headers.join("\n");
+    expect(text).toContain("# sst_clear_sky_retrieval_only:");
+    expect(text).toContain("does not pass through cloud");
+    expect(text).toContain("non-random subset of that month's days");
+  });
+
+  it("does not repeat the gates the identity headers already write", () => {
+    // `# sst_sampling` and `# sst_retrieval_depth` state the daytime overpass
+    // and the radiometric skin in full in the same block. A provenance claim
+    // made twice in one file reads as two claims a reader has to reconcile.
+    const text = headers.join("\n");
+    expect(text).not.toContain("# sst_daytime_overpass_only:");
+    expect(text).not.toContain("# sst_near_surface_radiometric:");
+  });
+
+  it("asserts no direction and no magnitude for the clear-sky subset", () => {
+    // A reader told cloudy days are absent will supply a sign — clear means
+    // sunny means warm. The table declines to: the same screening that favours
+    // calm sunlit days in one basin coincides with upwelling in another.
+    expect(headers.join("\n")).toContain(
+      "# sst_clear_sky_direction: no direction and no magnitude are asserted"
+    );
+    expect(headers.join("\n")).toContain("regime-dependent");
+  });
+
+  it("obeys the CSV header contract: no delimiter, quote, or line break", () => {
+    // A comma here would tear provenance into ragged cells for every reader
+    // (see csvHeaderText in probe.ts); these lines are not scrubbed on the way
+    // out, so the discipline has to hold at the source.
+    for (const line of headers) {
+      expect(line.startsWith("# ")).toBe(true);
+      expect(line).not.toMatch(/[,"\r\n]/);
+    }
+  });
+
+  it("is silent for every layer but SST", () => {
+    // In particular the land-surface-temperature sibling must never inherit an
+    // ocean product's gate; it writes its own from lstObservingConstraints.
+    for (const id of LAYER_ORDER) {
+      if (id === "sst") continue;
+      expect(sstObservingConstraintCsvHeaders(id)).toEqual([]);
+    }
+    expect(sstObservingConstraintCsvHeaders(undefined)).toEqual([]);
+  });
+
+  it("is asserted only for a thermal-infrared retrieval", () => {
+    // The prose names the thermal infrared verbatim and GIBS publishes mid-IR
+    // variants of the same product, so the identifier is what the claim rests
+    // on. An exported file cannot be corrected after the fact.
+    expect(LAYERS.sst.wmsLayer).toMatch(/_Thermal_/);
+  });
+
+  it("carries every prose line for a constraint the table declares", () => {
+    // The keyed record is the drift guard: a fourth constraint must not slip
+    // into the table with no decision made about the exported file.
+    const declared = new Set<SstObservingConstraintId>(
+      SST_OBSERVING_CONSTRAINTS.map((entry) => entry.id)
+    );
+    for (const line of headers) {
+      const match = /^# sst_([a-z_]+):/.exec(line);
+      if (!match || match[1] === "clear_sky_direction") continue;
+      expect(
+        declared.has(match[1].replace(/_/g, "-") as SstObservingConstraintId)
+      ).toBe(true);
+    }
+  });
+
+  it("claims nothing biological and no future value", () => {
+    // These are statements about an instrument and an orbit.
+    expect(headers.join("\n")).not.toMatch(
+      /species|habitat|ecosystem|biolog|bleach|heatwave|heat wave|forecast|stress/i
+    );
+  });
+});

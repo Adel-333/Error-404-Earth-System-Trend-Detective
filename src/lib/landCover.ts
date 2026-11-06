@@ -1,0 +1,599 @@
+import { LAYERS, type DatasetRef } from "./timeline";
+
+/**
+ * Boundary-level context for class-coded MODIS MCD12Q1 land-cover samples.
+ *
+ * Class identifiers are categorical labels, not measurements. These helpers
+ * count source class codes and coverage outcomes only; they do not average
+ * class identifiers or infer biodiversity, biomass, habitat quality,
+ * productivity, ecological health, causes, or forecasts.
+ */
+
+const layer = LAYERS.landcover;
+if (!layer.dataset) {
+  throw new Error(
+    "RoamingEye: the land-cover layer must retain a cited dataset"
+  );
+}
+
+/** Existing NASA MCD12Q1 v061 provenance, retained in every summary. */
+export const LAND_COVER_SOURCE: DatasetRef = layer.dataset;
+
+export type IgbpLandCoverClassCode =
+  | 1
+  | 2
+  | 3
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13
+  | 14
+  | 15
+  | 16
+  | 17
+  | 255;
+
+export interface IgbpLandCoverClass {
+  code: IgbpLandCoverClassCode;
+  label: string;
+  /** False for source unclassified pixels: observed, but not a land-cover type. */
+  isInformativeLandCover: boolean;
+}
+
+/** MODIS MCD12Q1 LC_Type1 IGBP class codes. */
+export const IGBP_LAND_COVER_CLASSES: readonly IgbpLandCoverClass[] = [
+  {
+    code: 1,
+    label: "Evergreen needleleaf forest",
+    isInformativeLandCover: true,
+  },
+  {
+    code: 2,
+    label: "Evergreen broadleaf forest",
+    isInformativeLandCover: true,
+  },
+  {
+    code: 3,
+    label: "Deciduous needleleaf forest",
+    isInformativeLandCover: true,
+  },
+  {
+    code: 4,
+    label: "Deciduous broadleaf forest",
+    isInformativeLandCover: true,
+  },
+  { code: 5, label: "Mixed forest", isInformativeLandCover: true },
+  { code: 6, label: "Closed shrubland", isInformativeLandCover: true },
+  { code: 7, label: "Open shrubland", isInformativeLandCover: true },
+  { code: 8, label: "Woody savanna", isInformativeLandCover: true },
+  { code: 9, label: "Savanna", isInformativeLandCover: true },
+  { code: 10, label: "Grassland", isInformativeLandCover: true },
+  { code: 11, label: "Permanent wetland", isInformativeLandCover: true },
+  { code: 12, label: "Cropland", isInformativeLandCover: true },
+  { code: 13, label: "Urban & built-up", isInformativeLandCover: true },
+  {
+    code: 14,
+    label: "Cropland/natural vegetation mosaic",
+    isInformativeLandCover: true,
+  },
+  { code: 15, label: "Permanent snow & ice", isInformativeLandCover: true },
+  { code: 16, label: "Barren", isInformativeLandCover: true },
+  { code: 17, label: "Water", isInformativeLandCover: true },
+  { code: 255, label: "Unclassified", isInformativeLandCover: false },
+];
+
+/** The IGBP class code every water source value is rendered as. */
+export const IGBP_WATER_CLASS_CODE: IgbpLandCoverClassCode = 17;
+
+/**
+ * Source values the rendered layer folds onto another IGBP class code.
+ *
+ * The land-cover layer's own GIBS colormap
+ * (colormaps/v1.3/MODIS_IGBP_Land_Cover_Type.xml) carries exactly one
+ * multi-valued entry — `sourceValue="0,17"` → "Water Bodies"; every other
+ * entry names a single value. 0 is the legacy IGBP water code that earlier
+ * MODIS land-cover collections wrote, 17 the MCD12Q1 v061 one, and the
+ * rendered product answers both with the same colour, so a sampler reading
+ * native source values can hand us either.
+ *
+ * Resolving 0 to 17 re-codes a value onto the class the source already
+ * renders it as: it cannot merge two distinct classes, and the samples it
+ * applies to are counted separately so no summary hides that it happened.
+ */
+export const IGBP_SOURCE_VALUE_ALIASES: Readonly<
+  Record<number, IgbpLandCoverClassCode>
+> = {
+  0: IGBP_WATER_CLASS_CODE,
+};
+
+export type IgbpSourceValueResolution =
+  | {
+      status: "class";
+      classCode: IgbpLandCoverClassCode;
+      /** True when the supplied value reached its class through an alias. */
+      aliased: boolean;
+    }
+  | { status: "outside-contract" };
+
+/**
+ * Resolve one native source value to the IGBP class GIBS renders it as.
+ *
+ * Values outside the published contract stay unresolved: nothing is rounded
+ * or snapped to a neighbouring code, because a class identifier has no
+ * neighbours.
+ */
+export function resolveIgbpSourceValue(
+  value: number
+): IgbpSourceValueResolution {
+  if (!Number.isInteger(value)) return { status: "outside-contract" };
+  const aliasTarget = IGBP_SOURCE_VALUE_ALIASES[value];
+  if (aliasTarget !== undefined) {
+    return { status: "class", classCode: aliasTarget, aliased: true };
+  }
+  return IGBP_BY_CODE.has(value as IgbpLandCoverClassCode)
+    ? {
+        status: "class",
+        classCode: value as IgbpLandCoverClassCode,
+        aliased: false,
+      }
+    : { status: "outside-contract" };
+}
+
+export interface LandCoverClassObservation {
+  /** MCD12Q1 IGBP class code; null means the sampler observed no usable code. */
+  classCode: number | null;
+  /**
+   * Count of samples/pixels represented by this record. Defaults to one and
+   * must be a positive safe integer so native counts remain exact.
+   */
+  sampleCount?: number;
+}
+
+export type LandCoverCoverageStatus = "available" | "no-data" | "unavailable";
+
+export interface LandCoverCoverage {
+  status: LandCoverCoverageStatus;
+  /** Supplied samples with a positive integer count, including no-data. */
+  totalSampleCount: number;
+  /** Samples in IGBP codes 1..17. */
+  knownLandCoverSampleCount: number;
+  /** Samples in code 255. */
+  unclassifiedSampleCount: number;
+  /** Samples where the sampler supplied no usable code. */
+  noDataSampleCount: number;
+  /** Samples whose code was outside the IGBP contract. */
+  invalidClassSampleCount: number;
+  /**
+   * Samples that reached their class through {@link IGBP_SOURCE_VALUE_ALIASES}
+   * (today: the legacy water code 0). Reported so the fold onto the rendered
+   * class stays visible in the counts it contributed to.
+   */
+  aliasedSourceValueSampleCount: number;
+  /**
+   * Records rejected because their sample count was not a positive safe
+   * integer or would make the cumulative sample count unsafe.
+   */
+  invalidRecordCount: number;
+  /** Share of all counted samples that carried an IGBP land-cover class 1..17. */
+  knownLandCoverFraction: number | null;
+  reason: "no-samples" | "no-known-land-cover" | "record-not-published" | null;
+}
+
+export interface LandCoverClassCoverage {
+  classCode: IgbpLandCoverClassCode;
+  label: string;
+  sampleCount: number;
+  fractionOfAllSamples: number;
+  /** Denominator is all source-coded class samples, including unclassified. */
+  fractionOfSourceClassSamples: number;
+  isInformativeLandCover: boolean;
+}
+
+export type LandCoverPublicationStatus =
+  "published" | "outside-layer-range" | "invalid-year";
+
+export interface LandCoverProvenance {
+  layerId: "landcover";
+  wmsLayer: string;
+  dataYear: number;
+  cadence: "annual";
+  classScheme: "IGBP";
+  /** Native source values are categorical codes, not a physical quantity. */
+  nativeValue: "IGBP LC_Type1 class code";
+  nativeUnit: "categorical";
+  sourceResolution: "500 m";
+  /** Counts represent samples within the selected boundary, not area shares. */
+  geographicCoverage: "selected-boundary samples";
+  source: DatasetRef;
+  publicationStatus: LandCoverPublicationStatus;
+}
+
+export interface LandCoverContextSummary {
+  kind: "observed-class-coded-land-cover";
+  /** Explicitly prevents consumers from treating this as a temporal forecast. */
+  isForecast: false;
+  provenance: LandCoverProvenance;
+  /** Whether this requested year can support an observed land-cover result. */
+  observationStatus: "available" | "unavailable";
+  /** Explicit reason when no observation can be presented. */
+  unavailableReason:
+    | "invalid-year"
+    | "outside-layer-range"
+    | "no-samples"
+    | "no-known-land-cover"
+    | null;
+  coverage: LandCoverCoverage;
+  classCoverage: LandCoverClassCoverage[];
+  /** Whether the largest informative-class count is unique, tied, or absent. */
+  mostFrequentClassStatus: "unique" | "tied" | "no-data";
+  /** Every informative class sharing the largest sample count. */
+  mostFrequentClasses: LandCoverClassCoverage[];
+  /** Unique most frequent informative class; null for a tie or no known class. */
+  dominantClass: LandCoverClassCoverage | null;
+}
+
+const IGBP_BY_CODE = new Map<IgbpLandCoverClassCode, IgbpLandCoverClass>(
+  IGBP_LAND_COVER_CLASSES.map((entry) => [entry.code, entry])
+);
+
+export function summarizeLandCoverContext(
+  observations: readonly LandCoverClassObservation[],
+  dataYear: number
+): LandCoverContextSummary {
+  const publicationStatus = publicationStatusForYear(dataYear);
+  const provenance: LandCoverProvenance = {
+    layerId: "landcover",
+    wmsLayer: layer.wmsLayer,
+    dataYear,
+    cadence: "annual",
+    classScheme: "IGBP",
+    nativeValue: "IGBP LC_Type1 class code",
+    nativeUnit: "categorical",
+    sourceResolution: "500 m",
+    geographicCoverage: "selected-boundary samples",
+    source: LAND_COVER_SOURCE,
+    publicationStatus,
+  };
+  if (publicationStatus !== "published") {
+    return {
+      kind: "observed-class-coded-land-cover",
+      isForecast: false,
+      provenance,
+      observationStatus: "unavailable",
+      unavailableReason: publicationStatus,
+      coverage: {
+        status: "unavailable",
+        totalSampleCount: 0,
+        knownLandCoverSampleCount: 0,
+        unclassifiedSampleCount: 0,
+        noDataSampleCount: 0,
+        invalidClassSampleCount: 0,
+        aliasedSourceValueSampleCount: 0,
+        invalidRecordCount: 0,
+        knownLandCoverFraction: null,
+        reason: "record-not-published",
+      },
+      classCoverage: [],
+      mostFrequentClassStatus: "no-data",
+      mostFrequentClasses: [],
+      dominantClass: null,
+    };
+  }
+
+  const classCounts = new Map<IgbpLandCoverClassCode, number>();
+  let totalSampleCount = 0;
+  let knownLandCoverSampleCount = 0;
+  let unclassifiedSampleCount = 0;
+  let noDataSampleCount = 0;
+  let invalidClassSampleCount = 0;
+  let aliasedSourceValueSampleCount = 0;
+  let invalidRecordCount = 0;
+
+  for (const observation of observations) {
+    const sampleCount = observation.sampleCount ?? 1;
+    if (
+      !Number.isSafeInteger(sampleCount) ||
+      sampleCount <= 0 ||
+      !Number.isSafeInteger(totalSampleCount + sampleCount)
+    ) {
+      invalidRecordCount += 1;
+      continue;
+    }
+
+    totalSampleCount += sampleCount;
+    const classCode = observation.classCode;
+    if (classCode === null) {
+      noDataSampleCount += sampleCount;
+      continue;
+    }
+    const resolution = resolveIgbpSourceValue(classCode);
+    if (resolution.status === "outside-contract") {
+      invalidClassSampleCount += sampleCount;
+      invalidRecordCount += 1;
+      continue;
+    }
+    if (resolution.aliased) aliasedSourceValueSampleCount += sampleCount;
+
+    const igbpCode = resolution.classCode;
+    const igbpClass = IGBP_BY_CODE.get(igbpCode)!;
+    classCounts.set(igbpCode, (classCounts.get(igbpCode) ?? 0) + sampleCount);
+    if (igbpClass.isInformativeLandCover) {
+      knownLandCoverSampleCount += sampleCount;
+    } else {
+      unclassifiedSampleCount += sampleCount;
+    }
+  }
+
+  const sourceClassSampleCount =
+    knownLandCoverSampleCount + unclassifiedSampleCount;
+  const classCoverage = [...classCounts.entries()]
+    .map(([classCode, sampleCount]) => {
+      const igbpClass = IGBP_BY_CODE.get(classCode)!;
+      return {
+        classCode,
+        label: igbpClass.label,
+        sampleCount,
+        fractionOfAllSamples:
+          totalSampleCount === 0 ? 0 : sampleCount / totalSampleCount,
+        fractionOfSourceClassSamples:
+          sourceClassSampleCount === 0
+            ? 0
+            : sampleCount / sourceClassSampleCount,
+        isInformativeLandCover: igbpClass.isInformativeLandCover,
+      };
+    })
+    .sort((a, b) => b.sampleCount - a.sampleCount || a.classCode - b.classCode);
+
+  const informativeClassCoverage = classCoverage.filter(
+    (entry) => entry.isInformativeLandCover
+  );
+  const largestInformativeClassCount =
+    informativeClassCoverage[0]?.sampleCount ?? null;
+  const mostFrequentClasses =
+    largestInformativeClassCount === null
+      ? []
+      : informativeClassCoverage.filter(
+          (entry) => entry.sampleCount === largestInformativeClassCount
+        );
+  const mostFrequentClassStatus =
+    mostFrequentClasses.length === 0
+      ? "no-data"
+      : mostFrequentClasses.length === 1
+        ? "unique"
+        : "tied";
+  const dominantClass =
+    mostFrequentClassStatus === "unique" ? mostFrequentClasses[0] : null;
+  const coverage: LandCoverCoverage = {
+    status: knownLandCoverSampleCount > 0 ? "available" : "no-data",
+    totalSampleCount,
+    knownLandCoverSampleCount,
+    unclassifiedSampleCount,
+    noDataSampleCount,
+    invalidClassSampleCount,
+    aliasedSourceValueSampleCount,
+    invalidRecordCount,
+    knownLandCoverFraction:
+      totalSampleCount === 0
+        ? null
+        : knownLandCoverSampleCount / totalSampleCount,
+    reason:
+      totalSampleCount === 0
+        ? "no-samples"
+        : knownLandCoverSampleCount === 0
+          ? "no-known-land-cover"
+          : null,
+  };
+
+  const unavailableReason =
+    coverage.reason === "record-not-published" ? null : coverage.reason;
+
+  return {
+    kind: "observed-class-coded-land-cover",
+    isForecast: false,
+    provenance,
+    observationStatus: unavailableReason === null ? "available" : "unavailable",
+    unavailableReason,
+    coverage,
+    classCoverage,
+    mostFrequentClassStatus,
+    mostFrequentClasses,
+    dominantClass,
+  };
+}
+
+export function publicationStatusForYear(
+  dataYear: number
+): LandCoverPublicationStatus {
+  if (!Number.isInteger(dataYear)) return "invalid-year";
+  const latestYear = layer.latest?.year ?? layer.start.year;
+  return dataYear >= layer.start.year && dataYear <= latestYear
+    ? "published"
+    : "outside-layer-range";
+}
+
+/**
+ * Broad vegetation-formation groups for the IGBP LC_Type1 scheme.
+ *
+ * The 17 informative IGBP classes are routinely collapsed into coarser
+ * formation groups for summary reporting. Grouping only re-buckets whole class
+ * codes and sums their sample counts; it never averages the categorical class
+ * identifiers. Source unclassified pixels (code 255) carry no land-cover type
+ * and therefore belong to no formation.
+ */
+export type LandCoverFormationId =
+  | "forest"
+  | "shrubland"
+  | "savanna"
+  | "grassland"
+  | "wetland"
+  | "cropland"
+  | "urban"
+  | "snow-and-ice"
+  | "barren"
+  | "water";
+
+export interface LandCoverFormation {
+  id: LandCoverFormationId;
+  label: string;
+  /** Whole IGBP LC_Type1 class codes collapsed into this formation. */
+  classCodes: readonly IgbpLandCoverClassCode[];
+}
+
+/**
+ * IGBP LC_Type1 classes 1..17 grouped into vegetation formations. Every
+ * informative class code appears in exactly one group; codes 6-7, 8-9, and
+ * 12/14 are the standard multi-class formations.
+ */
+export const LAND_COVER_FORMATIONS: readonly LandCoverFormation[] = [
+  { id: "forest", label: "Forest", classCodes: [1, 2, 3, 4, 5] },
+  { id: "shrubland", label: "Shrubland", classCodes: [6, 7] },
+  { id: "savanna", label: "Savanna", classCodes: [8, 9] },
+  { id: "grassland", label: "Grassland", classCodes: [10] },
+  { id: "wetland", label: "Permanent wetland", classCodes: [11] },
+  { id: "cropland", label: "Cropland", classCodes: [12, 14] },
+  { id: "urban", label: "Urban & built-up", classCodes: [13] },
+  { id: "snow-and-ice", label: "Permanent snow & ice", classCodes: [15] },
+  { id: "barren", label: "Barren", classCodes: [16] },
+  { id: "water", label: "Water", classCodes: [17] },
+];
+
+export interface LandCoverFormationCoverage {
+  id: LandCoverFormationId;
+  label: string;
+  classCodes: readonly IgbpLandCoverClassCode[];
+  sampleCount: number;
+  /** Denominator is every counted sample, including no-data and unclassified. */
+  fractionOfAllSamples: number;
+  /** Denominator is samples carrying an informative IGBP class 1..17. */
+  fractionOfKnownLandCover: number;
+}
+
+export interface LandCoverFormationSummary {
+  kind: "observed-land-cover-formation-groups";
+  /** Explicitly prevents consumers from treating this as a temporal forecast. */
+  isForecast: false;
+  provenance: LandCoverProvenance;
+  /** Mirrors whether the upstream annual observation can be presented. */
+  observationStatus: LandCoverContextSummary["observationStatus"];
+  /** Retains the upstream publication or sampling limitation unchanged. */
+  unavailableReason: LandCoverContextSummary["unavailableReason"];
+  formationCoverage: LandCoverFormationCoverage[];
+  /** Whether the largest formation count is unique, tied, or absent. */
+  mostFrequentFormationStatus: "unique" | "tied" | "no-data";
+  /** Every formation sharing the largest sample count. */
+  mostFrequentFormations: LandCoverFormationCoverage[];
+  /**
+   * Unique most common formation by sample count; null for a tie or when no
+   * known class is present. Formations aggregate whole classes (forest sums
+   * codes 1-5, cropland sums 12 and 14), so equal totals are more likely here
+   * than at class level and must not be resolved by the display sort order.
+   */
+  dominantFormation: LandCoverFormationCoverage | null;
+  /**
+   * Informative-class samples not mapped to any formation. Zero for the
+   * complete IGBP contract; a positive value flags an unmapped class code.
+   */
+  ungroupedKnownSampleCount: number;
+}
+
+const FORMATION_BY_CLASS = new Map<IgbpLandCoverClassCode, LandCoverFormation>(
+  LAND_COVER_FORMATIONS.flatMap((formation) =>
+    formation.classCodes.map((code) => [code, formation] as const)
+  )
+);
+
+/**
+ * Collapse a class-coded land-cover summary into vegetation-formation groups.
+ *
+ * Reuses the already-validated coverage and provenance from
+ * {@link summarizeLandCoverContext}: no dataset reference is dropped and no
+ * class code is re-parsed. Fractions share the same denominators as the class
+ * coverage so callers can mix formation and class views without rescaling.
+ *
+ * Ties are reported, not broken. `formationCoverage` keeps a deterministic
+ * display order (count, then lowest class code), but that ordering is a
+ * presentation detail: reading its first entry as "the" dominant formation
+ * would assert a winner the sample counts do not support. This mirrors how
+ * {@link summarizeLandCoverContext} reports tied most-frequent classes.
+ */
+export function summarizeLandCoverFormations(
+  context: LandCoverContextSummary
+): LandCoverFormationSummary {
+  const groupCounts = new Map<LandCoverFormationId, number>();
+  let ungroupedKnownSampleCount = 0;
+
+  if (context.observationStatus === "available") {
+    for (const entry of context.classCoverage) {
+      if (!entry.isInformativeLandCover) continue;
+      const formation = FORMATION_BY_CLASS.get(entry.classCode);
+      if (!formation) {
+        ungroupedKnownSampleCount += entry.sampleCount;
+        continue;
+      }
+      groupCounts.set(
+        formation.id,
+        (groupCounts.get(formation.id) ?? 0) + entry.sampleCount
+      );
+    }
+  }
+
+  const { totalSampleCount, knownLandCoverSampleCount } = context.coverage;
+  const formationCoverage = LAND_COVER_FORMATIONS.filter((formation) =>
+    groupCounts.has(formation.id)
+  )
+    .map((formation) => {
+      const sampleCount = groupCounts.get(formation.id)!;
+      return {
+        id: formation.id,
+        label: formation.label,
+        classCodes: formation.classCodes,
+        sampleCount,
+        fractionOfAllSamples:
+          totalSampleCount === 0 ? 0 : sampleCount / totalSampleCount,
+        fractionOfKnownLandCover:
+          knownLandCoverSampleCount === 0
+            ? 0
+            : sampleCount / knownLandCoverSampleCount,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.sampleCount - a.sampleCount || a.classCodes[0] - b.classCodes[0]
+    );
+
+  const largestFormationCount = formationCoverage[0]?.sampleCount ?? null;
+  const mostFrequentFormations =
+    largestFormationCount === null
+      ? []
+      : formationCoverage.filter(
+          (entry) => entry.sampleCount === largestFormationCount
+        );
+  const mostFrequentFormationStatus =
+    mostFrequentFormations.length === 0
+      ? "no-data"
+      : mostFrequentFormations.length === 1
+        ? "unique"
+        : "tied";
+
+  return {
+    kind: "observed-land-cover-formation-groups",
+    isForecast: false,
+    provenance: context.provenance,
+    observationStatus: context.observationStatus,
+    unavailableReason: context.unavailableReason,
+    formationCoverage,
+    mostFrequentFormationStatus,
+    mostFrequentFormations,
+    dominantFormation:
+      mostFrequentFormationStatus === "unique"
+        ? mostFrequentFormations[0]
+        : null,
+    ungroupedKnownSampleCount,
+  };
+}

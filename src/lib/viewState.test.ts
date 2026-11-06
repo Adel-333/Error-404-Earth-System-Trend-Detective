@@ -1,0 +1,332 @@
+import { describe, it, expect } from "vitest";
+import { encodeViewState, decodeViewState, sharedPlaceFrom } from "./viewState";
+
+describe("encodeViewState", () => {
+  it("encodes the full state", () => {
+    const encoded = encodeViewState({
+      layer: "lst",
+      month: { year: 2024, month: 8 },
+      camera: { lat: -21.2, lon: 55.7, alt: 1.8 },
+    });
+    expect(encoded).toBe("layer=lst&t=2024-08&lat=-21.20&lon=55.70&alt=1.80");
+  });
+
+  it("omits missing fields", () => {
+    expect(encodeViewState({})).toBe("");
+    expect(encodeViewState({ layer: "snow" })).toBe("layer=snow");
+  });
+
+  it("zero-pads single-digit months", () => {
+    expect(encodeViewState({ month: { year: 2021, month: 3 } })).toBe(
+      "t=2021-03"
+    );
+  });
+});
+
+describe("decodeViewState", () => {
+  it("round-trips what encode produces", () => {
+    const state = {
+      layer: "aerosol" as const,
+      month: { year: 2019, month: 11 },
+      camera: { lat: 37.75, lon: 15.0, alt: 0.5 },
+    };
+    expect(decodeViewState(encodeViewState(state))).toEqual(state);
+  });
+
+  it("accepts a leading #", () => {
+    expect(decodeViewState("#layer=snow")).toEqual({ layer: "snow" });
+  });
+
+  it("returns empty state for garbage", () => {
+    expect(decodeViewState("")).toEqual({});
+    expect(decodeViewState("#not&even&params")).toEqual({});
+    expect(decodeViewState("#layer=plutonium")).toEqual({});
+  });
+
+  it("drops malformed fields but keeps valid ones", () => {
+    const state = decodeViewState("#layer=ndvi&t=banana&lat=91&lon=0&alt=1");
+    expect(state.layer).toBe("ndvi");
+    expect(state.month).toBeUndefined(); // bad month format
+    expect(state.camera).toBeUndefined(); // lat out of range
+  });
+
+  it("requires the full camera triple", () => {
+    expect(decodeViewState("#lat=10&lon=20").camera).toBeUndefined();
+    expect(decodeViewState("#lat=10&lon=20&alt=2").camera).toEqual({
+      lat: 10,
+      lon: 20,
+      alt: 2,
+    });
+  });
+
+  it("rejects out-of-range months and altitudes", () => {
+    expect(decodeViewState("#t=2024-13").month).toBeUndefined();
+    expect(decodeViewState("#t=0000-05").month).toBeUndefined();
+    expect(decodeViewState("#lat=0&lon=0&alt=-1").camera).toBeUndefined();
+    expect(decodeViewState("#lat=0&lon=0&alt=999").camera).toBeUndefined();
+  });
+
+  it("keeps a street-level altitude inside the unit sphere", () => {
+    const state = {
+      layer: "ndvi" as const,
+      camera: { lat: 29.76043, lon: -95.3698, alt: -0.004812 },
+    };
+    const encoded = encodeViewState(state);
+    expect(encoded).toContain("alt=-0.004812");
+    expect(encoded).toContain("lat=29.76043");
+    expect(decodeViewState(encoded).camera).toEqual(state.camera);
+  });
+});
+
+describe("analysis deep links (probe + pin)", () => {
+  it("round-trips an open probe and a comparison pin", () => {
+    const state = {
+      layer: "soil" as const,
+      month: { year: 2024, month: 1 },
+      probe: {
+        kind: "point" as const,
+        lat: 8.0,
+        lon: 40.0,
+        mode: "point" as const,
+      },
+      pin: { year: 2020, month: 1 },
+    };
+    expect(decodeViewState(encodeViewState(state))).toEqual(state);
+  });
+
+  it("encodes probe coordinates compactly", () => {
+    expect(
+      encodeViewState({
+        probe: { kind: "point", lat: -3.46534, lon: -62.21591, mode: "point" },
+      })
+    ).toBe("probe=-3.4653%2C-62.2159%2Cpoint");
+    expect(encodeViewState({ pin: { year: 2019, month: 7 } })).toBe(
+      "pin=2019-07"
+    );
+  });
+
+  // The two modes reduce the same imagery to different statistics — a 3×3
+  // median against a cos(latitude)-weighted 1° mean — so a link that carried
+  // only the coordinates reopened every shared area mean as a point median,
+  // silently and with an area caption nowhere in sight. That link is also the
+  // `view_url` stamped inside the area mean's own CSV export.
+  it("carries the sampling mode, so an area probe does not reopen as a point", () => {
+    const area = {
+      kind: "point" as const,
+      lat: 8.0,
+      lon: 40.0,
+      mode: "area" as const,
+    };
+    expect(encodeViewState({ probe: area })).toBe(
+      "probe=8.0000%2C40.0000%2Carea"
+    );
+    expect(decodeViewState("#probe=8,40,area").probe).toEqual(area);
+    expect(decodeViewState("#probe=8,40,point").probe).toMatchObject({
+      mode: "point",
+    });
+  });
+
+  // Links shared before the mode existed are still in bookmarks and in
+  // published CSV headers. They carry no evidence of their mode, so they
+  // resolve to the app default rather than inventing an area mean.
+  it("reads a legacy two-component probe as a point probe", () => {
+    expect(decodeViewState("#probe=8,40").probe).toEqual({
+      kind: "point",
+      lat: 8,
+      lon: 40,
+      mode: "point",
+    });
+  });
+
+  // A drawn region's chart is a mean over a box, and the box is the only
+  // thing that says which one. The link used to drop it entirely — while the
+  // CSV that same view exports declares the bounds in a `# region:` header and
+  // then stamps this link as the way to reproduce them.
+  it("round-trips a drawn region, in the CSV's S W N E order", () => {
+    const region = {
+      kind: "region" as const,
+      bounds: { south: -4.5, west: -63.25, north: -3, east: -62 },
+    };
+    expect(encodeViewState({ probe: region })).toBe(
+      "probe=-4.5000%2C-63.2500%2C-3.0000%2C-62.0000%2Cregion"
+    );
+    expect(decodeViewState("#probe=-4.5,-63.25,-3,-62,region").probe).toEqual(
+      region
+    );
+  });
+
+  // dragBounds expresses a box across the antimeridian in continuous
+  // longitudes (east > 180) so the span stays the short arc the user swept.
+  // A link has to survive that convention rather than wrapping it back.
+  it("round-trips a region that crosses the antimeridian", () => {
+    const seam = {
+      kind: "region" as const,
+      bounds: { south: -18, west: 178, north: -14, east: 182 },
+    };
+    expect(decodeViewState(encodeViewState({ probe: seam })).probe).toEqual(
+      seam
+    );
+  });
+
+  it("drops malformed probe and pin values", () => {
+    expect(decodeViewState("#probe=999,0").probe).toBeUndefined();
+    expect(decodeViewState("#probe=banana").probe).toBeUndefined();
+    // Three components is a coordinate pair plus a mode — but only a mode the
+    // sampler actually implements. `region` is not one of them: a drawn region
+    // is a different kind of target and carries four bounds, not a point.
+    expect(decodeViewState("#probe=1,2,3").probe).toBeUndefined();
+    expect(decodeViewState("#probe=1,2,region").probe).toBeUndefined();
+    expect(decodeViewState("#probe=1,2,area,5").probe).toBeUndefined();
+    expect(decodeViewState("#pin=2024-13").pin).toBeUndefined();
+    expect(decodeViewState("#pin=notamonth").pin).toBeUndefined();
+  });
+
+  // A hash is untrusted input, and a region the drawer could never have
+  // produced would reopen as a chart of nothing — or of the whole planet.
+  it("drops a region link the drawer could not have produced", () => {
+    // Five components but not a region marker.
+    expect(decodeViewState("#probe=1,2,3,4,5").probe).toBeUndefined();
+    // Inverted, and a stray-click sliver: below the 0.2° usable floor.
+    expect(decodeViewState("#probe=3,-63,-3,-62,region").probe).toBeUndefined();
+    expect(
+      decodeViewState("#probe=-3,-62,-2.99,-61.99,region").probe
+    ).toBeUndefined();
+    // Wider than the short arc dragBounds can yield, and beyond the ±85°
+    // latitude clamp.
+    expect(
+      decodeViewState("#probe=-4,-100,-3,100,region").probe
+    ).toBeUndefined();
+    expect(
+      decodeViewState("#probe=-89,-63,-3,-62,region").probe
+    ).toBeUndefined();
+    expect(decodeViewState("#probe=a,b,c,d,region").probe).toBeUndefined();
+  });
+});
+
+describe("shareable searches", () => {
+  const paris = {
+    name: "Paris",
+    lat: 48.8566,
+    lon: 2.3522,
+    bbox: [48.8156, 48.9022, 2.2241, 2.4699] as [
+      number,
+      number,
+      number,
+      number,
+    ],
+    osm: "R7444",
+  };
+
+  it("round-trips a place and the query it was parsed from", () => {
+    const state = {
+      layer: "ndvi" as const,
+      place: paris,
+      query: "Paris",
+    };
+    expect(decodeViewState(encodeViewState(state))).toEqual(state);
+    expect(encodeViewState({ place: paris, query: "Paris" })).toBe(
+      "place=48.8566%2C2.3522%2C48.8156%2C48.9022%2C2.2241%2C2.4699%2CR7444%2CParis&q=Paris"
+    );
+  });
+
+  it("keeps a comma inside the place name", () => {
+    const place = {
+      name: "Paris, France",
+      lat: 48.8566,
+      lon: 2.3522,
+      osm: "R7444",
+    };
+    expect(decodeViewState(encodeViewState({ place })).place).toEqual(place);
+  });
+
+  it("round-trips a box that crosses the antimeridian", () => {
+    const place = {
+      name: "Fiji",
+      lat: -17.7,
+      lon: 178,
+      bbox: [-19, -16, 176, -178] as [number, number, number, number],
+      osm: "R571747",
+    };
+    expect(decodeViewState(encodeViewState({ place })).place).toEqual(place);
+  });
+
+  it("reads a link written before place sharing with nothing added", () => {
+    const legacy = "#layer=lst&t=2024-08&lat=-21.20&lon=55.70&alt=1.80";
+    expect(decodeViewState(legacy)).toEqual({
+      layer: "lst",
+      month: { year: 2024, month: 8 },
+      camera: { lat: -21.2, lon: 55.7, alt: 1.8 },
+    });
+    expect(decodeViewState(legacy).place).toBeUndefined();
+    expect(decodeViewState(legacy).query).toBeUndefined();
+    expect(encodeViewState(decodeViewState(legacy))).toBe(
+      "layer=lst&t=2024-08&lat=-21.20&lon=55.70&alt=1.80"
+    );
+  });
+
+  it("drops a broken place or query and keeps the rest of the link", () => {
+    expect(decodeViewState("#place=nope&layer=ndvi&q=Amazon")).toEqual({
+      layer: "ndvi",
+      query: "Amazon",
+    });
+    expect(decodeViewState("#place=91,0,,,,,,Nowhere").place).toBeUndefined();
+    expect(decodeViewState("#place=10,20,,,,,,").place).toBeUndefined();
+    expect(
+      decodeViewState("#place=10,20,1,2,3,4,not-an-id,Rome").place
+    ).toBeUndefined();
+    expect(decodeViewState("#q=%0A&layer=snow")).toEqual({ layer: "snow" });
+    expect(decodeViewState("#q=%20%20").query).toBeUndefined();
+  });
+
+  it("builds a shareable place from a search result, dropping a bad box or id", () => {
+    expect(
+      sharedPlaceFrom({
+        name: " Quito ",
+        lat: -0.22,
+        lon: -78.5,
+        boundingBox: [-0.4, 0, -78.6, -78.4],
+        osm: "R113722",
+      })
+    ).toEqual({
+      name: "Quito",
+      lat: -0.22,
+      lon: -78.5,
+      bbox: [-0.4, 0, -78.6, -78.4],
+      osm: "R113722",
+    });
+    // -180..180 is Nominatim's antimeridian failure, not a box to draw.
+    expect(
+      sharedPlaceFrom({
+        name: "Fiji",
+        lat: -17,
+        lon: 178,
+        boundingBox: [-20, -15, -180, 180],
+        osm: "nope",
+      })
+    ).toEqual({ name: "Fiji", lat: -17, lon: 178 });
+    expect(
+      sharedPlaceFrom({ name: "", lat: 0, lon: 0, boundingBox: null })
+    ).toBeUndefined();
+  });
+});
+
+describe("story links", () => {
+  it("round-trips a story that exists", () => {
+    const hash = encodeViewState({
+      story: "saharan-dust-2020",
+      layer: "aerosol",
+    });
+    expect(hash.startsWith("story=saharan-dust-2020")).toBe(true);
+    expect(decodeViewState(hash).story).toBe("saharan-dust-2020");
+  });
+
+  it("drops a story id that is not link-shaped", () => {
+    // Format only: an id naming no story is ignored when it is played, once
+    // the stories have loaded (StoryCard.showById).
+    expect(decodeViewState("#story=Bad Id!&layer=ndvi")).toEqual({
+      layer: "ndvi",
+    });
+    expect(decodeViewState("#story=toString").story).toBeUndefined();
+    expect(decodeViewState("#story=__proto__").story).toBeUndefined();
+  });
+});

@@ -1,0 +1,4789 @@
+/* `color-scheme` is what tells the browser to render its OWN widgets — the
+ * scrollbars on every panel, the native <select> popups in the software finder,
+ * the search field's clear button and caret, and the default focus ring — in
+ * the same palette as ours. Without it every one of those resolves light, so a
+ * white scrollbar rides the dark glass panels and the layer list's popup opens
+ * black-on-white. It tracks `data-theme`, not `prefers-color-scheme`, so the
+ * UA chrome follows the theme the user actually picked rather than the OS's.
+ * The bare `:root` carries it too, covering the frame before ThemeToggle sets
+ * the attribute. */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #05070d;
+  --fg: #e8eef7;
+  --muted: #8b97ab;
+  --accent: #4ea1ff;
+  --on-accent: #06101f;
+
+  /* Surfaces & chrome — theme-aware (see [data-theme="light"] below). One
+     material for every floating panel: a neutral near-black rather than the
+     old blue-black, lit along its top edge and set on a soft, deep shadow, so
+     panels read as objects above the globe instead of tinted holes in it. */
+  --panel-bg: rgba(13, 15, 20, 0.78);
+  --panel-bg-strong: rgba(13, 15, 20, 0.94);
+  --surface-edge: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --surface-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  --scrim: rgba(3, 5, 10, 0.7);
+  --control-bg: rgba(255, 255, 255, 0.05);
+  --control-border: rgba(255, 255, 255, 0.11);
+  --control-border-hover: rgba(255, 255, 255, 0.3);
+  --tick-year: rgba(255, 255, 255, 0.55);
+  --handle-border: #ffffff;
+  --accent-strong: rgba(78, 161, 255, 0.5);
+  --accent-ring: rgba(78, 161, 255, 0.25);
+  --accent-soft: rgba(78, 161, 255, 0.18);
+  --accent-faint: rgba(78, 161, 255, 0.06);
+  --warn: #ffd166;
+  --warn-border: rgba(255, 209, 102, 0.4);
+  --ok: #2ea043;
+  /* Direction-of-change tints for the place panel's figures. */
+  --tone-warm: #ffb454;
+  --tone-cool: #6cb6ff;
+  --tone-green: #5fd38a;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #eaf0f8;
+  --fg: #0e1626;
+  --muted: #51607a;
+  --accent: #1c6ae0;
+  --on-accent: #ffffff;
+
+  --panel-bg: rgba(255, 255, 255, 0.75);
+  --panel-bg-strong: rgba(255, 255, 255, 0.95);
+  --surface-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --surface-shadow: 0 18px 48px rgba(14, 22, 38, 0.14);
+  --scrim: rgba(222, 230, 240, 0.85);
+  --control-bg: rgba(14, 22, 38, 0.05);
+  --control-border: rgba(14, 22, 38, 0.14);
+  --control-border-hover: rgba(14, 22, 38, 0.32);
+  --tick-year: rgba(14, 22, 38, 0.55);
+  --handle-border: #ffffff;
+  --accent-strong: rgba(28, 106, 224, 0.5);
+  --accent-ring: rgba(28, 106, 224, 0.25);
+  --accent-soft: rgba(28, 106, 224, 0.16);
+  --accent-faint: rgba(28, 106, 224, 0.07);
+  --warn: #7a5b00;
+  --warn-border: rgba(122, 91, 0, 0.4);
+  --ok: #1a7f37;
+  --tone-warm: #b35900;
+  --tone-cool: #1c6ae0;
+  --tone-green: #1a7f37;
+}
+
+/* Theme-independent design tokens.
+ *
+ * Type: Geist for words and Geist Mono for data. Every number a reader compares
+ * (the month, the year ticks, the scale's values, coordinates, product IDs) is
+ * set in the mono, so digits line up and a figure reads as a measurement.
+ * Sentences stay in the sans; a status line in monospace reads like a log.
+ *
+ * Shape: panels are 24px, the tiles and controls inside them 14px, so inner
+ * corners run concentric with the outer ones, and buttons are full pills.
+ * The blur is one value for every panel. */
+:root {
+  --font-sans:
+    "Geist Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius-panel: 24px;
+  --radius-inner: 14px;
+  --material-blur: blur(14px) saturate(140%);
+}
+
+/* Two OS settings the glass chrome ignored. Each panel is a translucent layer
+ * blurred over a globe that never stops moving, which is exactly what these
+ * settings ask to turn down. Both are handled here, on the tokens, so every
+ * panel that paints `--panel-bg` follows without a per-panel rule.
+ *
+ * Reduce transparency: the panels go solid and the blur goes. `!important` is
+ * needed because each panel declares its own `backdrop-filter` further down,
+ * and a user setting outranks a style choice. */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  :root[data-theme="dark"] {
+    --panel-bg: rgb(8, 12, 20);
+    --panel-bg-strong: rgb(8, 12, 20);
+    --scrim: rgba(3, 5, 10, 0.92);
+  }
+  :root[data-theme="light"] {
+    --panel-bg: rgb(255, 255, 255);
+    --panel-bg-strong: rgb(255, 255, 255);
+    --scrim: rgba(222, 230, 240, 0.95);
+  }
+  *,
+  *::before,
+  *::after {
+    backdrop-filter: none !important;
+  }
+}
+
+/* Increase contrast: near-solid panels, control edges you can actually see (the
+ * 11% hairline disappears over imagery), and secondary text lifted toward the
+ * foreground. */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="dark"] {
+    --muted: #b8c2d3;
+    --panel-bg: var(--panel-bg-strong);
+    --control-border: rgba(255, 255, 255, 0.45);
+    --control-border-hover: rgba(255, 255, 255, 0.7);
+  }
+  :root[data-theme="light"] {
+    --muted: #35425a;
+    --panel-bg: var(--panel-bg-strong);
+    --control-border: rgba(14, 22, 38, 0.5);
+    --control-border-hover: rgba(14, 22, 38, 0.75);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh; /* fallback for browsers without dvh (and iOS reflow jank) */
+  height: 100dvh;
+}
+
+#globe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Grab cursor to signal the globe is draggable */
+  cursor: grab;
+  touch-action: none; /* let the canvas own touch gestures (drag to rotate) */
+}
+
+#globe:active {
+  cursor: grabbing;
+}
+
+/* The globe takes keyboard focus (arrow keys turn it, Enter charts the point
+   in view), so it needs the same 2px accent ring every other control gets.
+   The offset is negative because the canvas fills the viewport: an outline
+   drawn outside it would be entirely off screen. */
+#globe:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Present to assistive technology, absent to the eye. For live regions that
+   narrate something already visible on the globe, where a visible copy would
+   be redundant to everyone who can see it. Clipped rather than hidden with
+   `display: none` or `visibility: hidden`, both of which take the element out
+   of the accessibility tree along with the pixels. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Overlay UI (non-interactive except links) --- */
+.overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.overlay--top {
+  top: 0;
+}
+
+.overlay--bottom {
+  bottom: 0;
+  text-align: center;
+}
+
+/* The layer dropdown draws upward out of the HUD and over the top-right
+   chrome, but it cannot win that overlap on its own: `.controls` carries a
+   `backdrop-filter`, which makes a stacking context, so the panel's
+   `z-index: 6` is spent *inside* the HUD and the overlay's own `z-index: 2`
+   is what actually competes with `.search` (4-5) and `.export` (4). The
+   result was that at 667x375 the export buttons painted over the right-hand
+   column and four layer options could not be tapped at their centre.
+
+   So raise the overlay itself while the panel is open — the same move, and
+   the same reason, as `.search.is-open` below: the rows it draws should be
+   the rows the pointer actually hits. Scoped to the open state so the HUD
+   keeps its usual place in the stack the rest of the time. 6 ties with the
+   floating panels (`.probe`, `.place-insights`, `.hover-tooltip`) and wins
+   on DOM order, which is what an open dropdown should do. */
+.overlay--bottom:has(.layer-selector__panel.is-open) {
+  z-index: 6;
+}
+
+/* Tracking is size-specific. Display type wants it slightly negative, because
+   letters drawn large read as spaced apart, while small labels (the toolbar's,
+   the uppercase eyebrows) keep their positive tracking. The wordmark was the
+   only large text in the app set wide. Tightening it narrows the line and never
+   heightens it, so nothing below it moves. */
+.brand {
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+/* --- Actions: one pill of view actions, top right --------------------------
+   Draw region, Compare and Share view sit in one pill under the search field.
+   Everything used less often (the two exports, Find software, the keyboard
+   shortcuts and the theme) is one tap deeper, behind More. This replaces five
+   buttons staggered down the right edge plus three more stacked in the left
+   column, whose collisions with each other and with the dock's fold had taken
+   a run of per-breakpoint rules to hold apart. The header is now the wordmark
+   alone. The hint it carried ("drag to rotate · scrub the timeline") lives in
+   the keyboard-shortcuts sheet, which the menu and the ? key both open.
+
+   The component mounts keep their ids, so main.ts wires each one as before.
+   The pill supplies the material, and the buttons inside are quiet segments. */
+.actions {
+  position: absolute;
+  top: calc(clamp(0.75rem, 2vw, 1.25rem) + 52px);
+  right: clamp(0.75rem, 2vw, 1.25rem);
+  z-index: 4;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+}
+
+/* The pill's material sits on a pseudo-element, not the pill: an element with
+   a backdrop-filter becomes the backdrop root for everything inside it, and
+   the menu's own blur would then sample the pill instead of the globe. */
+.actions::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  border-radius: inherit;
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+}
+
+/* The overlay toolbar shares z-index 4 and comes later, so an open menu would
+   hang under it. Rising only while open (as the search field does) keeps an
+   open search popup, which also drops over this pill, on top of it. */
+.actions:has(.actions__menu:not([hidden])) {
+  z-index: 5;
+}
+
+/* The mounts lay their buttons straight into the pill (and the menu). */
+.actions > #draw,
+.actions > #compare,
+.actions > #share,
+.actions__menu > #export,
+.actions__menu > #theme-toggle {
+  display: contents;
+}
+
+.actions__sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--control-border);
+}
+
+.draw-button,
+.compare-button,
+.share-button,
+.actions__more-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 34px;
+  padding: 0 0.8rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    scale 0.1s ease-out;
+}
+
+.draw-button:hover,
+.compare-button:hover,
+.share-button:hover,
+.actions__more-button:hover,
+.actions__more-button[aria-expanded="true"] {
+  background: var(--control-bg);
+}
+
+.draw-button:focus-visible,
+.compare-button:focus-visible,
+.share-button:focus-visible,
+.actions__more-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A mode that is on (drawing armed, comparison open) is the inverse pill: the
+   same "selected" the dock's layer pill and the probe's segments use. Keyed
+   to the attribute so it outranks :hover — a class alone loses to it, and a
+   pointer resting on the button kept the hover fill under the inverse text. */
+.draw-button[aria-pressed="true"],
+.compare-button[aria-pressed="true"] {
+  color: var(--bg);
+  background: var(--fg);
+}
+
+.share-button--copied {
+  color: var(--accent);
+}
+
+.draw-button__icon,
+.compare-button__icon,
+.share-button__icon {
+  display: flex;
+  width: 15px;
+  height: 15px;
+}
+
+.draw-button__icon svg,
+.compare-button__icon svg,
+.share-button__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.actions__more {
+  position: relative;
+  display: flex;
+}
+
+.actions__more-button {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+
+.actions__more-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The menu: a disclosure (ActionMenu.ts), not an ARIA menu. Its items are
+   ordinary buttons in tab order, so Tab walks them and a screen reader reads
+   them as the buttons they are. */
+.actions__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -4px;
+  z-index: 6;
+  min-width: 220px;
+  /* A landscape phone is ~320px tall and the menu hangs below two rows of
+     chrome, so it scrolls rather than running off the bottom. 116px is the
+     search row plus a 44px-target pill plus the gap above the menu. */
+  max-height: calc(100vh - 2 * clamp(0.75rem, 2vw, 1.25rem) - 116px);
+  max-height: calc(100dvh - 2 * clamp(0.75rem, 2vw, 1.25rem) - 116px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* A row scrolled into view (keyboard, or a scrolled menu) stops clear of
+     the edge rather than flush to it, where it lost a sub-pixel of its 44px. */
+  scroll-padding-block: 6px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 18px;
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+}
+
+.actions__menu[hidden] {
+  display: none;
+}
+
+.actions__divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--control-border);
+}
+
+.stories-link,
+.clip-link,
+.export__button,
+.software-link,
+.shortcuts-link,
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    scale 0.1s ease-out;
+}
+
+.stories-link:hover,
+.clip-link:hover,
+.export__button:hover,
+.software-link:hover,
+.shortcuts-link:hover,
+.theme-toggle:hover {
+  background: var(--control-bg);
+}
+
+/* Inset, because the menu's own edge is 6px away and would clip an outline
+   drawn outside the row. */
+.stories-link:focus-visible,
+.clip-link:focus-visible,
+.export__button:focus-visible,
+.software-link:focus-visible,
+.shortcuts-link:focus-visible,
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.export__icon,
+.actions__item-icon,
+.theme-toggle svg {
+  display: flex;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  opacity: 0.85;
+}
+
+.export__icon svg,
+.actions__item-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.shortcuts-link kbd {
+  margin-left: auto;
+  padding: 0.05rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+}
+
+/* Waiting on this panel's chunk — the same `data-state="pending"` the toolbar
+   buttons carry, so "fetching" reads the same wherever it happens. The label
+   only fades: a control that grew here would reflow the row around it.
+   `cursor: progress` is the desktop half of the cue and the fade is the half a
+   touch reader gets. Dimming is still and needs no reduced-motion arm. */
+.software-link[data-state="pending"],
+.attribution__link[data-state="pending"] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* A phone: the pill runs gutter to gutter under the wordmark and the search
+   field, its three actions sharing it as words. With icons as well the row
+   needs ~368px and overflows a 375px phone; words alone need ~286px, which
+   holds down to a 320px one. */
+@media (max-width: 540px) {
+  .actions {
+    left: clamp(0.75rem, 2vw, 1.25rem);
+  }
+
+  .draw-button,
+  .compare-button,
+  .share-button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 0.5rem;
+  }
+
+  .draw-button__icon,
+  .compare-button__icon,
+  .share-button__icon {
+    display: none;
+  }
+}
+
+/* A short window — a phone on its side, or a desktop window dragged short —
+   has the globe centred close under this row, and the labelled pill (~380px)
+   would sit across the top of it. Icons alone keep it to the corner. The words
+   stay the accessible names, and hover still shows each title. "Copied!"
+   returns for the moment it is up, since it is the only report a share gets. */
+@media (max-height: 500px) {
+  .actions {
+    left: auto;
+  }
+
+  .draw-button,
+  .compare-button,
+  .share-button {
+    flex: none;
+    justify-content: center;
+    width: 34px;
+    padding: 0;
+  }
+
+  .draw-button__icon,
+  .compare-button__icon,
+  .share-button__icon {
+    display: flex;
+  }
+
+  .draw-button__label,
+  .compare-button__label,
+  .share-button:not(.share-button--copied) .share-button__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .share-button--copied {
+    width: auto;
+    padding: 0 0.8rem;
+  }
+}
+
+.attribution {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  /* Shrink the row's box to the credits it holds instead of the overlay's full
+     width. The text was always centred, so nothing moves; what changes is that
+     the plate below can hug the line rather than slab the whole footer. This is
+     `fit-content`, not `max-content`, so when the credits are longer than the
+     window the box is the window and the wrap is exactly what it is today —
+     which is why the row's height is identical at every width, plate or no
+     plate, and the bottom-anchored HUD above it cannot be pushed into the
+     globe's aim. */
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  position: relative;
+  z-index: 0;
+}
+
+/* The credits row is the only HUD surface with nothing painted under it, so its
+   backdrop is whatever the globe canvas — which spans the whole viewport, under
+   every overlay — happens to be showing there.
+ *
+ * In light theme that is safe and stays safe: the canvas clears to the page
+ * colour and the globe's pale limb stops above the row, so the backdrop
+ * measures a flat 5.54:1 at every width AND every height tried (1280x900,
+ * 1280x700, 1440x760, 1024x600, 768x600 — 0% of the row below AA in all of
+ * them). In dark theme the same geometry puts the atmosphere's bright blue limb
+ * straight through the line: worst pixel 1.37-2.22:1 against the 4.5:1 AA floor
+ * for 12px text, with 6-16% of the row's backdrop below it, at every one of
+ * those sizes. What goes unread is the provenance line itself — the four
+ * data-source credits and the "Data providers", repository and feedback
+ * controls beside them.
+ *
+ * So the plate is declared once here and switched on where the globe actually
+ * reaches the row: in dark theme at any size, and at phone widths in both
+ * themes, where the layout lifts the row onto the imagery (see the 540px block
+ * near the end of this file). It is an absolutely positioned pseudo-element and
+ * not padding, precisely so it costs the row no height — the HUD-trap failure
+ * this suite has hit three times. `z-index: 0` on the row makes the stacking
+ * context that keeps the `-1` plate behind the text but above the imagery.
+ * e2e/attribution-contrast.spec.ts measures the composite in both themes. */
+.attribution::before {
+  content: none;
+  position: absolute;
+  inset: -0.3rem -0.55rem;
+  z-index: -1;
+  border-radius: 10px;
+  background: var(--panel-bg-strong);
+  backdrop-filter: var(--material-blur);
+}
+
+/* Out-specifies the phone block's switch below (an attribute selector beats a
+   media query, which adds no specificity), so in dark theme this is the rule
+   that lands at every width. Both set the same value, so the plate is on either
+   way — but anything that wants to turn it back OFF for a size in dark theme
+   has to say so here, not there. */
+:root[data-theme="dark"] .attribution::before {
+  content: "";
+}
+
+.attribution a {
+  color: var(--muted);
+  pointer-events: auto; /* keep the link clickable */
+}
+
+/* --- Focus ring parity ------------------------------------------------------
+ * Most controls declare `outline: 2px solid var(--accent)` on :focus-visible,
+ * but these ones never did and fell back to the browser's default ring — which,
+ * before we declared `color-scheme` above, resolved to a 1px near-black outline
+ * in BOTH themes and all but vanished on the dark glass panels. The layer
+ * picker and the nine overlay toggles were the worst hit. `color-scheme` now
+ * makes that fallback ring light in dark theme, but these keep the app's own
+ * accent ring: same ring, same offsets as everywhere else, and consistent
+ * rather than UA-dependent. Outlines don't participate in layout, so the HUD
+ * stack is untouched.
+ *
+ * The retry button is in this list for a reason worth writing down: it renders
+ * only when imagery fails (issue #88), so it is absent from the tab order on
+ * every healthy run and its missing ring surfaced as an intermittent failure of
+ * the keyboard-stop walk rather than a standing one. A control that is usually
+ * hidden is still a keyboard stop when it appears, and that is exactly when the
+ * reader is recovering from an error and least able to lose the cursor.
+ */
+.toolbar__item:focus-visible,
+.toolbar__handle:focus-visible,
+.toolbar__fold summary:focus-visible,
+.toolbar__story:focus-visible,
+.view-card__open:focus-visible,
+.view-card__action:focus-visible,
+.intro__skip:focus-visible,
+.controls__collapse:focus-visible,
+.layer-selector__trigger:focus-visible,
+.status-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Inline text links sit inside running copy — a tighter offset keeps adjacent
+ * rings from colliding with their neighbours. */
+.attribution__link:focus-visible,
+.attribution a:focus-visible,
+.legend__source-note a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Press feedback ----------------------------------------------------------
+ * Only the globe's grab cursor used to answer a press, and that's a cursor, not
+ * the control. Every button now gives on pointer-down and eases back on
+ * release, so a tap feels connected before `click` has fired, and so does a
+ * press the user drags away from to cancel. It uses `scale`, not `transform`,
+ * so it composes with any transform a control already has instead of replacing
+ * it. Scaling never reflows, so the HUD stack and every measured position stay
+ * put. The release eases through `scale 0.1s ease-out`: the controls that
+ * declare their own transitions list it there, and `:where()` gives the rest
+ * the same at zero specificity, so a transition a control declares still wins.
+ * Reduced motion keeps the acknowledgement as a dim instead of a movement. */
+:where(button) {
+  transition: scale 0.1s ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active {
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active {
+    opacity: 0.75;
+  }
+}
+
+/* --- Loading state --- */
+.loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--bg);
+  color: var(--muted);
+  /* Above every control (4-6), so booting is one clean curtain rather than a
+     dimmed header with the search field and toolbar painted over it. Below
+     the modals (10) and the error toast and offline banner (11), which have
+     to reach a reader whose boot has failed. */
+  z-index: 7;
+  transition: opacity 0.6s ease;
+}
+
+/* Opacity alone leaves the lifted curtain in the accessibility tree: a screen
+   reader still reaches "Loading Earth…" long after the globe is up, and any
+   contrast audit measures that text against whatever now shows through it.
+   Flip visibility too — delayed by the fade so the transition still plays,
+   since visibility is animatable only as a step. */
+.loader.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 0.6s ease,
+    visibility 0s linear 0.6s;
+}
+
+/* Slow-boot notice. Absolutely positioned rather than a flex child, so the
+   always-rendered (and usually empty) live region costs the centred stack
+   neither height nor a `gap`, and an ordinary boot looks untouched. */
+.loader__slow {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 2rem;
+  text-align: center;
+}
+
+.loader__slow-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* The boot orb (ThinkingOrb.ts, mounted by main.ts). The box is in the markup
+   from the first paint, so the caption under it never moves when the orb
+   arrives a moment later; the orb fades in rather than popping. */
+.loader__orb {
+  width: 64px;
+  height: 64px;
+}
+.loader__orb canvas {
+  display: block;
+  animation: orb-in 0.4s ease both;
+}
+@keyframes orb-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader__orb canvas {
+    animation: none;
+  }
+  html,
+  body,
+  .theme-toggle {
+    transition: none;
+  }
+}
+
+/* --- Controls dock: layer, time and scale -------------------------------------
+   One floating row at the bottom of the view: the layer picker, the month and
+   its steppers, the scrubber and the colour scale, with a small meta line under
+   it for the status and the citation. It used to be a 301px column of six
+   stacked rows covering the bottom 40% of a 900px window, and most of that
+   height was read once and then only got in the way. The scale's title
+   restates the layer pill, and the caption and source note are reference
+   material behind the reading rather than the reading itself. Those three now
+   sit one level deeper, behind "About this layer", and open in place above the
+   row. What stays on screen is what's needed to read the globe (layer, month,
+   scale), the status line, which can carry an imagery-failure Retry, and the
+   provenance line, so the product ID and the month are never behind a gesture.
+
+   The dock is a grid. #legend, #timeline, the legend's row and the steppers'
+   wrapper are `display: contents`, so their children take the dock's own
+   columns without changing the DOM that Legend.ts and TimeSlider.ts build or
+   the selectors the rest of the app uses. None of those wrappers has a role,
+   so flattening them costs the accessibility tree nothing. Every item is
+   placed by area name. An empty row takes no height, because the dock spaces
+   its rows with margins rather than `row-gap`.
+
+   Width keeps a gutter for the overlay toolbar on BOTH sides, so the dock stays
+   centred and never runs under the toolbar column on the right, which
+   toolbar-height-continuity.spec.ts requires to stay clear. Below 900px the
+   single row would leave the scrubber too short to aim, so the track takes a
+   row of its own (the stacked layout further down). */
+.controls {
+  pointer-events: auto; /* this region is interactive, unlike the overlay */
+  position: relative;
+  width: min(860px, calc(100vw - 13rem));
+  margin: 0 auto 0.5rem;
+  display: grid;
+  grid-template-columns: auto auto auto auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "keys keys keys keys keys keys keys keys"
+    "title title title title title title title title"
+    "caption caption caption caption caption caption caption caption"
+    "classes classes classes classes classes classes classes classes"
+    "source source source source source source source source"
+    "layer prev month next play track scale fold"
+    "meta meta meta meta meta meta meta meta";
+  align-items: center;
+  padding: 0.45rem 0.7rem 0.4rem 0.55rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-panel);
+  backdrop-filter: var(--material-blur);
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+}
+
+#legend,
+#timeline,
+.legend__row,
+.timeline__steps {
+  display: contents;
+}
+
+#layer-selector {
+  grid-area: layer;
+}
+
+.timeline__steps > .timeline__step:first-child {
+  grid-area: prev;
+  margin-left: 0.4rem;
+}
+
+.timeline__readout {
+  grid-area: month;
+}
+
+.timeline__steps > .timeline__step:last-child {
+  grid-area: next;
+}
+
+.timeline__track {
+  grid-area: track;
+}
+
+.timeline__play {
+  grid-area: play;
+}
+
+.legend__scale,
+.legend__classes {
+  grid-area: scale;
+}
+
+/* Keys for the overlays that are switched on (quake depth, volcano recency).
+   They name markers that are on the globe right now, so they stay out in the
+   open, above the row, and take no height when no overlay is on. */
+.legend__keys {
+  grid-area: keys;
+  margin-bottom: 0.35rem;
+}
+
+/* "About this layer": the scale's title, the caption, a categorical layer's
+   named classes, and the source note. */
+.legend__measures,
+.legend__caption,
+.legend__source-note {
+  margin: 0 0.35rem 0.2rem;
+  text-align: left;
+}
+
+.legend__measures {
+  grid-area: title;
+  margin-top: 0.2rem;
+}
+
+.legend__caption {
+  grid-area: caption;
+}
+
+.legend__source-note {
+  grid-area: source;
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--control-border);
+}
+
+.controls:not(.is-details-open)
+  :is(.legend__measures, .legend__caption, .legend__source-note) {
+  display: none;
+}
+
+/* The meta line: status (and Retry) on the left; the citation and the details
+   toggle on the right. The status gives way first when the line is short of
+   room; its full text is also in its `title`. The citation never truncates. */
+.controls__meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0.1rem 0.1rem 0 0.35rem;
+}
+
+.controls__info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+  font: inherit;
+  font-size: 0.68rem;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.15rem 0.3rem;
+  cursor: pointer;
+}
+
+.controls__info:hover {
+  color: var(--fg);
+}
+
+.controls__info:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.controls__info[aria-expanded="true"] {
+  color: var(--accent);
+}
+
+.controls__info svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+/* The fold: only where even the dock is short of room (see the query below).
+   Declared before that query: the two rules have equal specificity, so source
+   order decides. */
+.controls__collapse {
+  display: none;
+  grid-area: fold;
+}
+
+/* Stacked: below 900px the track takes its own row under the main one, at
+   full width. The fold (phones only) takes the next-month stepper's column on
+   the meta line, the dock's bottom-right corner, where it sits folded or open
+   and costs no height (the line is two rows tall on a phone anyway). That
+   leaves the main row's width to the pill and the month: at 390px it is the
+   difference between "Terrain (shaded relief)" fitting and truncating. */
+@media (max-width: 899px) {
+  .controls {
+    /* Play leads the track's own row, the way a video player lays them out.
+       Its column is only as wide as the button, so the pill above spans it
+       and loses nothing. */
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "keys keys keys keys keys"
+      "title title title title title"
+      "caption caption caption caption caption"
+      "classes classes classes classes classes"
+      "source source source source source"
+      "layer layer prev month next"
+      "play track track track track"
+      "scale scale scale scale scale"
+      "meta meta meta meta fold";
+    padding: 0.5rem 0.6rem 0.45rem;
+  }
+
+  #layer-selector {
+    justify-content: flex-start;
+  }
+
+  .timeline__track {
+    margin-top: 0.25rem;
+  }
+
+  .legend__scale,
+  .legend__classes {
+    justify-self: start;
+    margin: 0.15rem 0.35rem 0;
+  }
+
+  .controls__meta {
+    flex-wrap: wrap;
+    row-gap: 0.1rem;
+  }
+}
+
+/* Phones: the credits row and the toolbar both sit under the dock here, not
+   beside it, so the side gutters go. The pill and the month tighten so the
+   main row holds on one line at 360px. */
+@media (max-width: 540px) {
+  .controls {
+    width: calc(100vw - 2rem);
+  }
+
+  .layer-selector__trigger {
+    padding: 0.4rem 0.7rem;
+  }
+
+  .timeline__readout {
+    min-width: 4.8em;
+  }
+}
+
+/* The fold. The dock is ~70px on a desktop, so short desktop windows no longer
+   need it. It's offered only where the dock still competes with the middle of
+   the view: a phone held upright, where a probe opening over the dock folds it
+   (see foldHudForOverlay in main.ts), and a phone held in landscape, where it
+   opens folded. Both the button and the collapsed state live inside this one
+   query, so a viewport that grows out of it restores every row and removes the
+   control together. Folding keeps the layer picker and the provenance line, so
+   the citation and the month survive it. What goes is everything else, stated
+   as an exclusion so that a row added later folds by default.
+
+   The button's chevron points the way the dock will move. */
+@media (max-height: 460px), (max-width: 540px) {
+  .controls__collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    /* Laid out one text line tall, so the fold never makes the line it sits on
+       taller than the text beside it: the dock is the same height with or
+       without it. */
+    margin: -6px 0 -6px 0.25rem;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .controls__collapse:hover {
+    color: var(--fg);
+    background: var(--control-bg);
+  }
+
+  .controls__collapse svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .controls.is-collapsed
+    > :not(.controls__collapse):not(#layer-selector):not(.controls__meta),
+  .controls.is-collapsed .controls__meta > :not(#provenance) {
+    display: none;
+  }
+
+  /* Folded, what's left fits one row: pill, citation, fold. On a phone held in
+     landscape that's the difference between the folded dock covering the
+     middle of a 360px view and clearing it. */
+  .controls.is-collapsed {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "layer meta fold";
+    padding-block: 0.25rem;
+  }
+
+  .controls.is-collapsed .controls__meta {
+    justify-content: flex-end;
+    margin: 0 0.25rem;
+  }
+
+  /* Right-aligned and unshrinkable, a citation longer than its slot would
+     overflow leftward over the pill and take its taps (667x375 did exactly
+     that). Folded, it wraps instead: two short lines still fit inside the
+     pill's height, and nothing of it is cut. */
+  .controls.is-collapsed .provenance {
+    flex: 0 1 auto;
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* A phone is a coarse pointer, so the fold's box is the same 44px the rest of
+   the chrome gets. Negative margins keep it laid out as small as the fine one,
+   so the full touch target neither grows the dock nor takes width from its
+   neighbours: it overhangs into the dock's padding and the empty right end of
+   the scale's row, and where it does overlap a neighbour, that neighbour comes
+   later in the DOM and still wins the tap. Both arms repeat the pointer
+   condition because `and` binds tighter than the comma: a bare
+   `(max-width: 540px)` would hand the 44px box to a narrow mouse window too. */
+@media (max-height: 460px) and (pointer: coarse),
+  (max-width: 540px) and (pointer: coarse) {
+  .controls__collapse {
+    width: 44px;
+    height: 44px;
+    margin: -14px -8px -14px -4px;
+  }
+}
+
+/* The unfolded dock on a short screen. Unfolded, the dock can reach the
+   header: at 568x320 it ran up to y=22, under the search field and the actions
+   pill, and at 740x360 the pill's Compare button took the taps meant for the
+   timeline's next-month stepper. There is no room for the dock, the bottom bar
+   and the header at once there.
+
+   Unfolding is the reader asking for the dock, so while it would meet the
+   header, the header yields the way a sheet covers what is behind it: the
+   wordmark, the search field and the pill fade out and leave the tab order,
+   and folding brings them straight back. Whether the two meet depends on the
+   width, the height, the pointer's target sizes and how the dock's own text
+   wraps, so main.ts measures it and sets `dock-over-header` rather than a
+   breakpoint guessing at it. */
+.overlay--top,
+.search,
+.actions,
+.stories {
+  transition:
+    opacity 0.2s ease,
+    visibility 0s;
+}
+
+#app.dock-over-header :is(.overlay--top, .search, .actions, .stories) {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+
+/* Layer selector (grouped dropdown) */
+.layer-selector {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.layer-selector__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  /* The primary control, so the one inverse pill in the dock: foreground on
+     background, not the accent. The swatch before the name is the layer's own
+     colour ramp (Legend.ts publishes it as --layer-swatch), which says more
+     about what is on the globe than a blue fill did. */
+  color: var(--bg);
+  background: var(--fg);
+  border: 1px solid var(--fg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem 0.4rem 0.75rem;
+  cursor: pointer;
+  /* One line, always: the pill sets the dock's row height, and a wrapped name
+     doubles it. A name too long for its column truncates, and the listbox it
+     opens shows it in full. */
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.layer-selector__trigger::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--layer-swatch, var(--accent));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.layer-selector__current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-selector__chevron {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* Opens upward from the pill it belongs to, aligned to the pill's left edge,
+   now that the pill leads the dock instead of sitting centred above it. */
+.layer-selector__panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  transform: translateY(6px);
+  width: min(440px, 86vw);
+  max-height: 46vh;
+  overflow-y: auto;
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.9rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 18px;
+  backdrop-filter: var(--material-blur);
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  z-index: 6;
+}
+
+/* No fade-in: a fading list is text at partial contrast for as long as it
+   fades, the selected option dropped to 1.54:1 mid-fade, and the list is
+   read the moment it opens. */
+.layer-selector__panel.is-open {
+  display: block;
+}
+
+.layer-selector__list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.9rem;
+}
+
+.layer-selector__advanced {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--control-border);
+}
+
+.layer-selector__advanced summary {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.layer-selector__advanced-line {
+  margin: 0.3rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.layer-selector__advanced-plain {
+  color: var(--fg);
+  font-weight: 650;
+}
+
+.layer-selector__group-title {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+}
+
+.layer-selector__option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+}
+
+/* The layer's caption, shown inside the option it belongs to on a phone. On a
+   desktop the picker stays a compact two-column list a mouse can sweep, and the
+   caption is one click away under "About this layer"; on a phone the picker is
+   one column with its own scroll anyway, so the caption rides along at no cost
+   and a thumb gets it without the extra step. */
+.layer-selector__option-desc {
+  display: none;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.layer-selector__option:hover {
+  background: var(--control-bg);
+}
+
+.layer-selector__option[aria-selected="true"] {
+  color: var(--on-accent);
+  background: var(--accent);
+  font-weight: 600;
+}
+
+/* --muted is tuned for the panel background and disappears on the accent fill,
+   so the selected option's caption follows the option's own color instead. */
+.layer-selector__option[aria-selected="true"] .layer-selector__option-desc {
+  color: inherit;
+  font-weight: 400;
+}
+
+@media (max-width: 540px) {
+  .layer-selector__list {
+    grid-template-columns: 1fr;
+  }
+
+  .layer-selector__option-desc {
+    display: block;
+  }
+}
+
+/* Legend: what the colours on the globe mean. The scale in the dock is the bar
+   with its numeric axis; its end words ("lower NDVI", "higher NDVI") show only
+   for the layers without numbers, where they are the only reading of the bar. */
+.legend__measures {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.legend__scale:not([hidden]) {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 0.4rem;
+  margin-left: 0.6rem;
+}
+
+.legend__scale[hidden] {
+  display: none;
+}
+
+.legend__bar-wrap {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: min(18rem, 100%);
+}
+
+.legend__bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--control-border);
+}
+
+.legend__values {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.legend__value {
+  flex: none;
+  white-space: nowrap;
+}
+
+.legend__values[hidden] {
+  display: none;
+}
+
+.legend__value:nth-child(2) {
+  text-align: center;
+}
+
+.legend__value:last-child {
+  text-align: right;
+}
+
+.legend__end {
+  font-size: 0.6rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.legend__end:first-child {
+  grid-row: 2;
+  grid-column: 1;
+}
+
+.legend__end:last-child {
+  grid-row: 2;
+  grid-column: 2;
+  text-align: right;
+}
+
+.legend__scale:has(.legend__values:not([hidden])) .legend__end {
+  display: none;
+}
+
+.legend__caption {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.legend__source-note {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.legend__source-note a {
+  color: inherit;
+}
+
+/* Categorical layers (land cover) have too many classes to name in the dock,
+   so the dock shows them as a strip of their colours, the same size as a
+   gradient bar, and "About this layer" opens the named list. The hover
+   readout names the class under the cursor either way. The names stay in
+   the accessibility tree while the strip is showing, clipped rather than
+   hidden. */
+.legend__classes:not([hidden]) {
+  display: flex;
+  margin-left: 0.6rem;
+}
+
+.legend__classes[hidden] {
+  display: none;
+}
+
+.controls:not(.is-details-open) .legend__classes {
+  width: 128px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--control-border);
+}
+
+.controls:not(.is-details-open) .legend__classes .legend__key-item {
+  flex: 1 1 0;
+}
+
+.controls:not(.is-details-open) .legend__classes .legend__swatch {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.controls:not(.is-details-open)
+  .legend__classes
+  .legend__key-item
+  > :not(.legend__swatch) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.controls.is-details-open .legend__classes {
+  grid-area: classes;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.65rem;
+  margin: 0 0.35rem 0.35rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+/* Color keys contributed by toggled-on overlays (quake depth, volcano recency) */
+.legend__keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.15rem 1rem;
+}
+
+.legend__keys:empty {
+  display: none;
+}
+
+.legend__key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.legend__key-title {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.legend__key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.legend__swatch {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--control-border);
+}
+
+/* Timeline ruler: the month, its steppers and the scrubber, all in the dock's
+   main row. */
+.timeline__readout {
+  min-width: 5.4em;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.timeline__track {
+  position: relative;
+  height: 36px;
+  margin: 0 12px; /* room so the handle never clips at the ends */
+  cursor: pointer;
+  touch-action: none; /* the track owns drag gestures */
+  outline: none;
+}
+
+.timeline__track:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.timeline__line {
+  position: absolute;
+  top: 11px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--control-border-hover);
+  border-radius: 2px;
+}
+
+.timeline__tick {
+  position: absolute;
+  top: 11px;
+  width: 1px;
+  background: var(--control-border-hover);
+  transform: translateX(-0.5px);
+}
+
+.timeline__tick--month {
+  height: 5px;
+}
+
+.timeline__tick--year {
+  height: 9px;
+  width: 1.5px;
+  background: var(--tick-year);
+}
+
+.timeline__year {
+  position: absolute;
+  top: 22px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.timeline__handle {
+  position: absolute;
+  top: 12px;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: var(--fg);
+  border: 0;
+  box-shadow:
+    0 0 0 4px var(--control-border-hover),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none; /* the track handles all pointer input */
+}
+
+/* Prev/next steppers: precise single-month moves where the drag handle is
+   coarse. Round and quiet until hovered, so they read as part of the month
+   between them rather than as two more buttons. */
+.timeline__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.timeline__step svg {
+  width: 16px;
+  height: 16px;
+}
+
+.timeline__step:hover:not([aria-disabled="true"]) {
+  background: var(--control-bg);
+  border-color: var(--control-border);
+}
+
+/* At the ends the stepper is aria-disabled, not disabled, so that it keeps
+   focus and stays in the tab ring. Dim the glyph rather than the button:
+   opacity on the button fades its focus outline too, and a 40 %-opacity
+   outline is not a focus indicator. */
+.timeline__step[aria-disabled="true"] {
+  cursor: default;
+}
+
+.timeline__step[aria-disabled="true"] svg {
+  opacity: 0.4;
+}
+
+.timeline__step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Play: the one control that runs the record by itself, so it reads as a
+   button at rest rather than a bare glyph like the steppers, and while it
+   plays it takes the inverse pill every "on" control in the app uses. */
+.timeline__play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 0.45rem;
+  padding: 0;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.timeline__play svg {
+  width: 14px;
+  height: 14px;
+}
+
+.timeline__play:hover {
+  border-color: var(--control-border-hover);
+}
+
+.timeline__play.is-playing {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+.timeline__play:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A video is being recorded from this playback (ClipRecorder.ts): the
+   universal recording red, as a ring, so it reads at a glance without a
+   second control appearing. Still, so it needs no reduced-motion arm. */
+.timeline.is-recording .timeline__play {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px #e5484d;
+}
+
+/* The status line gives way first on a short meta line: it ellipsises, and its
+   `title` carries the full note. */
+.timeline-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+/* A status light before the freshness note (main.ts setStatus sets the state).
+   It repeats what the sentence already says, so colour is never the only
+   carrier of it. */
+.timeline-status[data-currency]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+.timeline-status[data-currency="fresh"]::before {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+
+.timeline-status[data-currency="delayed"]::before {
+  background: var(--warn);
+  box-shadow: 0 0 6px var(--warn-border);
+}
+
+@media (max-width: 540px) {
+  .timeline__year {
+    font-size: 0.6rem;
+  }
+}
+
+/* --- Provenance line (the dock's meta line) ---------------------------------- */
+.provenance {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  opacity: 0.85;
+  user-select: text; /* researchers copy this into notes and citations */
+}
+
+/* --- Search (top-right) ----------------------------------------------------- */
+.search {
+  position: absolute;
+  top: clamp(0.75rem, 2vw, 1.25rem);
+  right: clamp(0.75rem, 2vw, 1.25rem);
+  width: min(320px, 70vw);
+  z-index: 4;
+  pointer-events: auto;
+}
+
+/* An open popup hangs over the actions pill, which sits at the same
+   z-index; only while it is open does the whole field rise above them, so the
+   rows it draws are the rows the pointer actually hits. */
+.search.is-open {
+  z-index: 5;
+}
+
+.search__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  box-shadow: var(--surface-edge);
+  backdrop-filter: var(--material-blur);
+  /* The label is the tap target (see SearchBox), so advertise it as one. */
+  cursor: text;
+}
+
+/* Focus lives on the nested input, but the ring reads better around the whole
+   field — it is what the user aimed at. */
+.search__field:focus-within {
+  border-color: var(--control-border-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.search__icon {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  flex: none;
+}
+
+.search__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.search__input::placeholder {
+  color: var(--muted);
+}
+
+.search__results {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0.25rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  backdrop-filter: var(--material-blur);
+  display: none;
+}
+
+.search__results.is-open {
+  display: block;
+}
+
+.search__group {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  padding: 0.45rem 0.6rem 0.1rem;
+}
+
+.search__result--world {
+  margin-top: 0.15rem;
+  border-top: 1px solid var(--control-border);
+}
+
+.search__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* One highlight for both ways in: the pointer, and the arrow keys (which keep
+   focus on the input, so there is no :focus-visible ring to rely on). */
+.search__result:hover,
+.search__result.is-active {
+  background: var(--accent-soft);
+}
+
+.search__result-name {
+  font-size: 0.88rem;
+  color: var(--fg);
+}
+
+.search__result-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.search__result-change {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search__spark {
+  width: 2.5rem;
+  height: 0.85rem;
+  flex: none;
+}
+
+.search__spark polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- Map panel (right side) --------------------------------------------------
+   A labeled panel, not an icon column. It starts below the actions pill
+   (that pill sits at clamp(...) + 52px and is about 44px tall) and stops
+   above the bottom dock, so Compare, Share and the timeline keep their own
+   clicks. The body scrolls; the fade below says when it does. */
+.toolbar {
+  position: absolute;
+  top: calc(clamp(0.75rem, 2vw, 1.25rem) + 7.5rem);
+  right: 0.75rem;
+  z-index: 4;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: min(21rem, calc(100vw - 1.5rem));
+  max-height: calc(100vh - clamp(0.75rem, 2vw, 1.25rem) - 7.5rem - 16rem);
+  overflow: hidden;
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 18px;
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+  --toolbar-fade-start: 0px;
+  --toolbar-fade-end: 0px;
+}
+
+/* Just above the phone sheet, a 21rem column covers the middle of the view
+   and a click there opens the menu. Keep the centre of the globe free. */
+@media (min-width: 541px) and (max-width: 700px) and (min-height: 461px) {
+  .toolbar {
+    width: min(16rem, calc(50vw - 2.75rem));
+  }
+}
+
+.toolbar__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The body is the scrollport. Fade whichever vertical edge still has content
+   behind it, so a panel that scrolls reads as unfinished. Toolbar.ts keeps
+   `data-overflow` in step with the real scroll position. A mask is applied
+   only while something is hidden — it promotes the panel to its own layer. */
+.toolbar[data-overflow="end"],
+.toolbar[data-overflow="both"] {
+  --toolbar-fade-end: 2rem;
+}
+
+.toolbar[data-overflow="start"],
+.toolbar[data-overflow="both"] {
+  --toolbar-fade-start: 2rem;
+}
+
+.toolbar[data-overflow="start"],
+.toolbar[data-overflow="end"],
+.toolbar[data-overflow="both"] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--toolbar-fade-start),
+    #000 calc(100% - var(--toolbar-fade-end)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--toolbar-fade-start),
+    #000 calc(100% - var(--toolbar-fade-end)),
+    transparent 100%
+  );
+}
+
+.toolbar__heading {
+  margin: 0;
+  padding: 0.75rem 0.85rem 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.view-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  padding: 0 0.6rem 0.55rem;
+}
+
+.view-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: var(--control-bg);
+  overflow: hidden;
+}
+
+.view-card.is-current {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.view-card__open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.view-card__thumb {
+  display: block;
+  width: 100%;
+  height: 64px;
+  object-fit: cover;
+  background: linear-gradient(160deg, #163024, #101820 55%, #1a140c);
+}
+
+.view-card__thumb.is-missing {
+  height: 64px;
+}
+
+.view-card__title {
+  padding: 0.35rem 0.45rem 0;
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.view-card__blurb {
+  padding: 0.1rem 0.45rem 0.35rem;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.view-card__actions {
+  display: flex;
+  gap: 0.1rem;
+  padding: 0 0.25rem 0.3rem;
+}
+
+.view-card__action {
+  flex: 1;
+  min-width: 0;
+  padding: 0.22rem 0.1rem;
+  font: inherit;
+  font-size: 0.62rem;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.view-card__action:hover {
+  color: var(--fg);
+  background: var(--panel-bg);
+}
+
+.toolbar__fold {
+  margin: 0 0.45rem;
+  border-top: 1px solid var(--control-border);
+}
+
+.toolbar__fold summary {
+  padding: 0.55rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.toolbar__fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.toolbar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-bottom: 0.4rem;
+}
+
+.toolbar__note {
+  margin: 0 0.45rem 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.toolbar__story {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  text-align: left;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.toolbar__story:hover {
+  background: var(--control-bg);
+}
+
+.toolbar__story-title {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.toolbar__story-blurb {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.toolbar__handle {
+  display: none;
+}
+
+.toolbar__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.4rem 1.4rem 0.4rem 0.55rem;
+  font: inherit;
+  text-align: left;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.toolbar__item:hover {
+  color: var(--fg);
+  background: var(--control-bg);
+}
+
+/* Pressed is a lift and a status dot, not a filled block. With several of the
+   nine toggles on at once, filled accent tiles were the loudest pixels on
+   screen; the accent now marks state the way a status light does. The lift and
+   the full-strength label carry the state as well, so it never rests on colour
+   alone. */
+.toolbar__item[aria-pressed="true"] {
+  position: relative;
+  color: var(--fg);
+  background: var(--control-bg);
+  border-color: var(--control-border);
+}
+
+.toolbar__item[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-strong);
+  transform: translateY(-50%);
+}
+
+.toolbar__icon {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+/* Waiting on this overlay's data — a network fetch for five of them, or the
+   browser's geolocation prompt. Same ring as the boot loader, so "fetching"
+   reads the same wherever it happens. The ring sits inside the fixed 22px icon
+   box and the icon only fades, so a pending button never changes size: at
+   phone widths this toolbar is a row above the HUD, where a control that grows
+   pushes the panel up over the globe. */
+.toolbar__item[data-state="pending"] {
+  cursor: progress;
+}
+
+.toolbar__item[data-state="pending"] .toolbar__icon svg {
+  opacity: 0.2;
+}
+
+.toolbar__item[data-state="pending"] .toolbar__icon::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  /* currentColor, not --accent: while pending the button is already pressed,
+     and an accent ring on the accent fill would be invisible. */
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* A frozen arc reads as an icon, not as activity — close the ring so the
+     dimmed icon still has an unmistakable "not settled" mark over it. */
+  .toolbar__item[data-state="pending"] .toolbar__icon::after {
+    border-color: currentColor;
+    opacity: 0.5;
+    animation: none;
+  }
+}
+
+.toolbar__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.toolbar__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.toolbar__label {
+  font-size: 0.84rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.toolbar__detail {
+  font-size: 0.68rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.toolbar__item[aria-pressed="true"] .toolbar__detail {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* --- Hover readout (follows the cursor) ------------------------------------- */
+.hover-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  /* Overlay readouts carry six provenance-bearing fields (name · type ·
+     country · elevation · last eruption · tectonic setting), which runs past
+     any window narrower than ~800px. Wrap instead of running off the edge.
+     The 28px matches twice the `pad` HoverInspector.position() keeps from the
+     viewport, so a clamped box always has room for its own margin. */
+  max-width: min(32rem, calc(100vw - 28px));
+  overflow-wrap: break-word;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  pointer-events: none; /* never intercept the globe drag */
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.hover-tooltip.is-visible {
+  opacity: 1;
+}
+
+/* Touch devices have no hover — don't show a stuck readout. A keyboard is not
+   a pointer, though: a tablet with one attached still matches `hover: none`,
+   and the readout is that user's only way of knowing where the arrow keys have
+   landed, so a keyboard aim overrides the rule. */
+@media (hover: none) {
+  .hover-tooltip:not(.is-aimed) {
+    display: none;
+  }
+}
+
+/* --- Keyboard aim reticle --------------------------------------------------
+   The pointer aims with a cursor; the keyboard turns the globe under a fixed
+   aim at the middle of the view, and that point is what Enter charts. Nothing
+   drew it, so the keys had no visible target. Shown only while the globe holds
+   keyboard focus (`:focus-visible`, so a mouse click on the globe does not
+   raise it), and never interactive — `pointer-events: none` keeps it out of
+   both the globe drag and `document.elementFromPoint`, which the hover specs
+   assert against. */
+.globe-reticle {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+
+.globe-reticle.is-visible {
+  opacity: 1;
+}
+
+/* Two hairlines crossing, with a gap at the centre so the pixel being named is
+   never covered by the thing naming it. The outer glow carries the mark over
+   both bright ice and dark ocean without a fill. */
+.globe-reticle::before,
+.globe-reticle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* The transparent band is the centre gap; the arms are the accent. */
+  --arm: var(--accent) 0 34%, transparent 34% 66%, var(--accent) 66% 100%;
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 70%));
+}
+
+.globe-reticle::before {
+  width: 22px;
+  height: 2px;
+  margin: -1px 0 0 -11px;
+  background: linear-gradient(to right, var(--arm));
+}
+
+.globe-reticle::after {
+  width: 2px;
+  height: 22px;
+  margin: -11px 0 0 -1px;
+  background: linear-gradient(to bottom, var(--arm));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .globe-reticle {
+    transition: none;
+  }
+}
+
+/* --- Study-region chip (top-center) ---------------------------------------- */
+.study-chip {
+  position: absolute;
+  top: clamp(0.75rem, 2vw, 1.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  color: var(--fg);
+  background: var(--panel-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 999px;
+  backdrop-filter: var(--material-blur);
+  pointer-events: auto;
+}
+
+.study-chip.is-visible {
+  display: flex;
+}
+
+.study-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 8px var(--warn);
+  flex: none;
+}
+
+.study-chip__name {
+  color: var(--warn);
+}
+
+.study-chip__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.study-chip__close:hover {
+  color: var(--fg);
+  background: var(--control-border);
+}
+
+.study-chip__close svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 540px) {
+  .study-chip {
+    font-size: 0.72rem;
+    max-width: 90vw;
+  }
+  .study-chip__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* --- Comparison mode: the swipe divider (its button is in the actions pill) --- */
+.compare-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  z-index: 5;
+  display: none;
+  width: 2px;
+  background: var(--accent-strong);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.compare-divider.is-visible {
+  display: block;
+}
+
+.compare-divider__handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--panel-bg-strong);
+  border: 2px solid var(--accent);
+  backdrop-filter: blur(8px);
+}
+
+/* Same ring, same offset as every other control (see "Focus ring parity"). The
+   handle is the splitter's only visible affordance, so a keyboard sweep needs
+   it to read as focused against whatever imagery is behind it. */
+.compare-divider__handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.compare-divider__handle::after {
+  content: "⇄";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.compare-divider__chip {
+  position: absolute;
+  top: calc(clamp(0.75rem, 2vw, 1.25rem) + 8px);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  color: var(--fg);
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  backdrop-filter: var(--material-blur);
+  pointer-events: none;
+}
+
+.compare-divider__chip--pinned {
+  right: 10px;
+  color: var(--accent);
+  border-color: var(--accent-ring);
+}
+
+.compare-divider__chip--live {
+  left: 10px;
+}
+
+/* --- Point probe panel ------------------------------------------------------- */
+.probe {
+  position: absolute;
+  top: 50%;
+  left: clamp(0.75rem, 2vw, 1.25rem);
+  transform: translateY(-50%);
+  z-index: 6;
+  display: none;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(400px, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+  pointer-events: auto;
+}
+.probe.is-open {
+  display: flex;
+}
+.probe__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.probe__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.probe__subtitle {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.probe__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  color: var(--fg);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.probe__close:hover {
+  background: var(--accent-soft);
+}
+.probe__close svg {
+  width: 16px;
+  height: 16px;
+}
+.probe__options {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.probe__segment {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--accent-faint);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+}
+
+.probe__segment-btn {
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* The selected segment is the same inverse pill as the layer picker:
+   background on foreground, which clears AA in both themes by a wide margin
+   (the accent fill it replaces needed --on-accent to pass at all). */
+.probe__segment-btn[aria-pressed="true"] {
+  color: var(--bg);
+  background: var(--fg);
+}
+
+.probe__chart {
+  width: 100%;
+  height: 150px;
+  display: block;
+}
+.probe__status {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+/* While a record streams in, an orb turns beside "Sampling 12/316 months…".
+   The negative margin keeps the 20px orb inside the text's own line box, so
+   the row is no taller with it than without it. */
+.probe__status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.probe__orb {
+  flex: none;
+  margin-block: -2px;
+}
+/* The qualifications that trail a settled reading. Same muted colour, one step
+   down in size — the treatment .probe__caveat already gives the panel's
+   standing qualification — so the measurement above it reads as the answer
+   rather than as the first sixth of a paragraph. `hidden` while empty, which is
+   every non-stats message, so the panel's height is unchanged there. */
+.probe__status-detail {
+  margin: 0.25rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.probe__status-detail[hidden] {
+  display: none;
+}
+.probe__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.probe__download {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.8rem;
+  /* A ghost pill: the chart is the content, the exports are actions on it,
+     and the accent is kept for state rather than for buttons. */
+  white-space: nowrap;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--control-border-hover);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.probe__download:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.probe__caveat {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .probe {
+    top: auto;
+    bottom: 11rem;
+    left: 50%;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* A window that is short but not narrow is the other case where the probe has
+   to be the one to move, and for the opposite reason to the phone's.
+
+   Vertically centred, the probe is 346px on the middle of the viewport, and on
+   any window this short the panel's top is above that middle — so it lands on
+   the panel however wide the window is. Measured on a probe opened at 1280x720,
+   1366x700, 1024x680, 1440x640, 1024x600 and 800x700, #hud-collapse returned
+   CANVAS.probe__chart at six of six, and at 800x700 the layer selector went
+   with it. That button is the only way back to the legend and the timeline.
+
+   The panel cannot answer this one. Below 540px of width it folds and the probe
+   is welcome to the middle, because a phone has no room for both. Here it does:
+   the probe is 400px against a window 800-1440px wide, and folding the panel to
+   buy space it does not need would take the colour ramp and the timeline away
+   from a reader on an ordinary laptop every time they clicked the globe. So the
+   probe takes the room above the panel instead — the same move the 460px rule
+   below makes, for the same reason, and it keeps every row of the panel on
+   screen.
+
+   24rem is what the EXPANDED panel needs, which is why it is larger than the
+   13.5rem the folded one takes below: the panel's own 3.6rem reserve, plus the
+   279-308px it stands, plus the probe's own inset. It has to cover the tallest
+   of them, because the panel grows as the window narrows — 279px at 1280 and
+   308px at 560 — and the arithmetic has to hold at the worst of the two. And
+   the chart gives up its fixed 150px first, exactly as it does below: the space
+   is bought from the plot, never from a citation. At 96px the dialog stands
+   292px, so at 680-720px of height nothing scrolls at all; below that it
+   scrolls, and clearance to the panel measures 34-99px across the band.
+
+   Held above the width arm on purpose. A phone already has an answer it needs
+   and this would undo it. */
+@media (min-width: 541px) and (max-height: 720px) {
+  .probe {
+    top: 0.75rem;
+    bottom: auto;
+    /* Both arms, or neither — the same restoration the 460px rule spells out
+       below: the 640px rule bottom-centres the probe with `left: 50%` plus a
+       translate, so dropping the transform alone would push the dialog off the
+       right of a 541-640px window. */
+    left: clamp(0.75rem, 2vw, 1.25rem);
+    transform: none;
+    max-height: calc(100vh - 24rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .probe__chart {
+    height: 96px;
+  }
+}
+
+/* A TALL window wider than a phone is the last place the probe still lands on a
+   control, and there the collision is horizontal rather than vertical. Above
+   720px of height the probe keeps the centred position the two rules above
+   override, and above 540px of width no fold control is rendered at all — "the
+   two arms enter and leave together" — so the panel cannot fold, and folding it
+   anyway would strand the reader with no way back.
+
+   Mostly what the probe covers there is the colour ramp, which is a question
+   about a reader's default that docs/BACKLOG.md is holding open. The part that
+   is not a question is the layer selector. Measured on main with a probe open
+   at 900px of height, a tap aimed at `.layer-selector__trigger` returned
+   CANVAS.probe__chart at 560, 600 and 640px of width, P.probe__status at 660,
+   700 and 760, and DIV#probe-panel at 820 — seven widths at which the reader
+   cannot change the layer without dismissing the probe, and no fold control to
+   recover it with. It clears at 840, where the trigger's centre passes the
+   probe's right edge by 3px, and comfortably by 880.
+
+   The probe yields again, and above 780px of height it yields for free. The
+   panel's height does not vary with the window's — it stands 330px at 560 wide,
+   315 at 660 and 301 at 820, over a constant 61px bottom inset — so the room
+   above it is 391px or more at every height in this band, against the 346px the
+   probe stands. Top-anchored, nothing scrolls and the chart keeps its 150px.
+
+   Below 780px it is not free, and 780 is where the arithmetic turns: the probe's
+   own 358px bottom against the panel's top at `100vh - 391px` leaves 11px at
+   760 and 31px at 780. So the chart gives up its fixed 150px there, exactly as
+   it does in the two rules around this one — the space is bought from the plot,
+   never from a citation — which brings the dialog to 292px and the clearance to
+   26px at the 721px floor. Without it the margin at 560x721 was 4px between the
+   probe's bottom edge and the centre of the trigger, which is the kind of
+   number CI's taller text metrics turn over.
+
+   26rem is a guard rather than a budget: the panel's 391px worst case plus the
+   probe's inset and clearance. It allows 305px at 721px of height against the
+   292px the folded-chart dialog stands, and 365px at 781 against 346 — so it
+   never bites in this band, and catches only a probe whose content grows past
+   it.
+
+   Bounded at 880px on purpose. It is the smallest round width clear of every
+   measured failure, and past it the trigger is reachable on main already. The
+   probe's column still crosses the trigger's left edge out to about 1010px, but
+   a control whose centre is tappable is not the defect this closes, and
+   widening the rule to chase it would answer the legend question BACKLOG.md is
+   holding — which is the maintainer's call, not this rule's.
+
+   Held below the width arm above for the same reason that one is: a phone has
+   an answer it needs and this must not undo it. */
+@media (min-width: 541px) and (max-width: 880px) and (min-height: 721px) {
+  .probe {
+    top: 0.75rem;
+    bottom: auto;
+    /* Both arms, or neither — the 640px rule bottom-centres the probe with
+       `left: 50%` plus a translate, so dropping the transform alone would push
+       the dialog off the right of a 541-640px window. */
+    left: clamp(0.75rem, 2vw, 1.25rem);
+    transform: none;
+    max-height: calc(100vh - 26rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 541px) and (max-width: 880px) and (min-height: 721px) and (max-height: 780px) {
+  .probe__chart {
+    height: 96px;
+  }
+}
+
+/* A short window is the one case where the panel cannot be the one to yield.
+   Below 460px of height it already opens folded to its 75px floor (the
+   landscape default #1023 shipped), so the fold that rescues a portrait phone
+   has nothing left to give. The probe is 346px against a 360-430px window, and
+   vertically centred it lands squarely on that floor: measured at 667x375,
+   740x360, 844x390 and 932x430 it covered the folded panel over 391-393px of
+   width and the whole of its 75px height, and #hud-collapse — the only control
+   that brings the legend and the timeline back — was unreachable at all four.
+   At 667x375 and 740x360 the layer selector and #provenance went with it, so a
+   reader who probed a point lost the product ID and the month as well.
+
+   The probe yields instead: it anchors to the top and takes only the room above
+   the bottom overlay, scrolling for the rest. 13.5rem is that overlay's own
+   3.6rem reserve plus the 132-142px it stands, and the chart gives up its fixed
+   150px first — the space is bought from the plot, never from a citation. */
+@media (max-height: 460px) {
+  .probe {
+    top: 0.75rem;
+    bottom: auto;
+    /* Both arms, or neither: the 640px rule above bottom-centres the probe with
+       `left: 50%` plus a translate, so dropping the transform alone leaves the
+       left edge at the middle of the screen and pushes the dialog off the right
+       of it — measured at 568x320, where the close button landed at x=654 in a
+       568px window. A narrow short window gets both rules, so this one restores
+       the anchor it overrides. */
+    left: clamp(0.75rem, 2vw, 1.25rem);
+    transform: none;
+    max-height: calc(100vh - 13.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .probe__chart {
+    height: 96px;
+  }
+}
+
+/* --- Attribution link button ----------------------------------------------- */
+.attribution__link {
+  font: inherit;
+  font-size: inherit;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  pointer-events: auto;
+}
+.attribution__link:hover {
+  color: var(--fg);
+}
+
+/* --- Providers page (modal) ------------------------------------------------- */
+.providers {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: none;
+}
+.providers.is-open {
+  display: block;
+}
+.providers__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+}
+.providers__panel {
+  position: absolute;
+  inset: clamp(0.5rem, 4vh, 3rem) clamp(0.5rem, 4vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.providers__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--control-border);
+}
+.providers__title {
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  font-weight: 700;
+}
+.providers__title::before {
+  content: "🛰️ ";
+}
+.providers__intro {
+  margin-top: 0.4rem;
+  max-width: 70ch;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.providers__close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.providers__close:hover {
+  color: var(--fg);
+}
+.providers__close svg {
+  width: 18px;
+  height: 18px;
+}
+.providers__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem 1.5rem;
+}
+.providers__group {
+  margin-top: 1.25rem;
+}
+.providers__group:first-child {
+  margin-top: 0;
+}
+.providers__group-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+.providers__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.7rem;
+}
+.providers__card {
+  display: block;
+  padding: 0.8rem 0.9rem;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+.providers__card:hover {
+  border-color: var(--accent-strong);
+  background: var(--accent-faint);
+  transform: translateY(-1px);
+}
+.providers__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.providers__name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.providers__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.providers__dot--core {
+  background: var(--ok);
+}
+.providers__dot--underlying {
+  background: var(--accent);
+}
+.providers__dot--ecosystem {
+  background: var(--muted);
+}
+.providers__meta {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+.providers__desc {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* "Citing the data": per-dataset DOI list + the GIBS acknowledgment. */
+.providers__datasets {
+  margin: 0.6rem 0 0 1.1rem;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--muted);
+  /* Dataset short names are single unbreakable tokens — underscores are not
+     break opportunities — and the longest, MODIS_AQUA_L3_SST_THERMAL_MONTHLY_
+     9KM_DAYTIME_V2019.0, lays out 388px wide. That is wider than this list
+     gets on a phone, and .providers__body scrolls horizontally whether it
+     means to or not: overflow-y: auto computes overflow-x to auto, so one
+     over-wide line makes a sideways scroller of the whole citation list.
+     Focusing the link then dragged everything right by 72px at 390px and
+     clipped the left edge of every other line — the list bullets and the
+     first characters of the paragraph above went off-screen. Breaking the
+     token inside the column keeps the ID whole on one screen. Last resort
+     only, so it fires on this token and leaves ordinary prose alone; above
+     540px nothing overflows and the list is byte-identical either way. */
+  overflow-wrap: break-word;
+}
+
+.providers__datasets a {
+  color: var(--accent);
+}
+
+/* Qualification a source carries with it (bundled snapshot date, "no DOI —
+   add your retrieval date", the digitization the geometry came from). Set on
+   its own line so it reads as a caveat rather than part of the credit. */
+.providers__dataset-note {
+  display: block;
+  font-size: 0.74rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.providers__ack {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--muted);
+  border-left: 3px solid var(--control-border);
+}
+
+.providers__cite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.providers__cite-btn {
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.providers__cite-btn:hover {
+  border-color: var(--control-border-hover);
+}
+
+.providers__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--control-border);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.providers__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.providers__version {
+  margin-left: auto;
+  opacity: 0.8;
+}
+
+/* --- Reviewed software finder ------------------------------------------------ */
+.software__title::before {
+  content: "";
+}
+
+.software__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.software__filters {
+  display: grid;
+  grid-template-columns: minmax(12rem, 2fr) repeat(3, minmax(9rem, 1fr));
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+}
+
+.software__field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.software__field input,
+.software__field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.software__field select option {
+  color: #0e1626;
+}
+
+.software__field input:focus-visible,
+.software__field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.software__status {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.software__results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.7rem;
+}
+
+.software__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.85rem;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+}
+
+.software__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.software__name {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.software__license {
+  flex: none;
+  font-size: 0.68rem;
+  color: var(--accent);
+}
+
+.software__summary,
+.software__access,
+.software__note,
+.software__verified {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.software__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.software__tags span {
+  padding: 0.18rem 0.4rem;
+  font-size: 0.68rem;
+  color: var(--fg);
+  background: var(--accent-faint);
+  border: 1px solid var(--accent-ring);
+  border-radius: 6px;
+}
+
+.software__note {
+  padding-left: 0.55rem;
+  border-left: 2px solid var(--accent-ring);
+}
+
+.software__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.software__actions a {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.software__verified {
+  margin-top: auto;
+  font-size: 0.68rem;
+}
+
+.software__empty {
+  grid-column: 1 / -1;
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--control-border);
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  .software__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .software__field--query {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .software__filters {
+    grid-template-columns: 1fr;
+  }
+
+  .software__field--query {
+    grid-column: auto;
+  }
+}
+
+/* --- Catalog agent fleet status -------------------------------------------- */
+.fleet__panel {
+  max-width: 68rem;
+  margin-inline: auto;
+}
+
+.fleet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fleet__status {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.fleet__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.fleet__summary-item {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.7rem;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+}
+
+.fleet__summary-value {
+  overflow-wrap: anywhere;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.fleet__summary-value--passed,
+.fleet__agent-state--passed,
+.fleet__history-status--passed {
+  color: var(--ok);
+}
+
+.fleet__summary-value--failed,
+.fleet__agent-state--failed,
+.fleet__history-status--failed {
+  color: var(--warn);
+}
+
+.fleet__summary-item span {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.fleet__agents {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.fleet__agent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 0.6rem;
+  min-width: 0;
+  padding: 0.75rem;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+}
+
+.fleet__agent-name {
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.fleet__agent-state,
+.fleet__history-status {
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.fleet__agent-metrics,
+.fleet__agent-message {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.fleet__agent-message {
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--warn);
+}
+
+.fleet__history-panel {
+  border-top: 1px solid var(--control-border);
+}
+
+.fleet__section-title {
+  margin-top: 1rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.fleet__history {
+  display: grid;
+  margin-top: 0.4rem;
+}
+
+.fleet__history-item {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto minmax(15rem, 1.2fr);
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--control-border);
+  font-size: 0.72rem;
+}
+
+.fleet__history-item time,
+.fleet__history-metrics,
+.fleet__history-empty {
+  color: var(--muted);
+}
+
+.fleet__history-empty {
+  padding: 0.8rem 0;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 760px) {
+  .fleet__summary,
+  .fleet__agents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fleet__history-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .fleet__history-metrics {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .fleet__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fleet__agents {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Keyboard shortcuts overlay (modal) -------------------------------------- */
+.shortcuts {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: none;
+}
+.shortcuts.is-open {
+  display: block;
+}
+.shortcuts__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+}
+.shortcuts__panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 26rem);
+  max-height: min(88vh, 34rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.shortcuts__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--control-border);
+}
+.shortcuts__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.shortcuts__title::before {
+  content: "⌨️ ";
+}
+.shortcuts__close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.shortcuts__close:hover {
+  color: var(--fg);
+}
+.shortcuts__close svg {
+  width: 16px;
+  height: 16px;
+}
+/* The list scrolls once it outgrows the panel — which it does at ordinary
+   window heights — and a scrolling box that nothing inside it can focus is
+   unreachable by keyboard: there is no way to bring the lower shortcuts into
+   view without a pointer. It takes focus itself (`tabindex="0"` in
+   ui/ShortcutsOverlay.ts) so the arrow keys scroll it, and carries the same
+   2px accent ring as every other stop. The offset is negative for the same
+   reason the globe's is: the box is clipped by the panel around it, so a ring
+   drawn outside would be cut off. */
+.shortcuts__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 1.25rem 1.25rem;
+}
+.shortcuts__body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.shortcuts__group-title {
+  margin-top: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.shortcuts__row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+}
+.shortcuts__keys {
+  flex: none;
+  display: inline-flex;
+  gap: 0.25rem;
+  min-width: 6.5rem;
+}
+.shortcuts__keys kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+}
+.shortcuts__does {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* --- City name labels (close zoom, Cities overlay) ---------------------------- */
+.city-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1; /* above the canvas, below the UI overlays */
+}
+
+.city-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  white-space: nowrap;
+  text-shadow:
+    0 0 4px var(--bg),
+    0 0 2px var(--bg),
+    0 1px 2px var(--bg);
+}
+
+.city-label--capital {
+  font-weight: 700;
+}
+
+.tz-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tz-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #f4f7fb;
+  white-space: nowrap;
+  text-shadow:
+    0 0 4px #0c1218,
+    0 0 2px #0c1218,
+    0 1px 2px #0c1218;
+}
+
+/* --- Touch tap targets ---------------------------------------------------
+   The chrome buttons are sized for a mouse: 32px for the theme toggle, 36px
+   for the icon buttons in the explore rail, 36px for the layer trigger. All
+   clear the WCAG 2.2 AA floor (24px, 2.5.8) but sit under the 44px a
+   fingertip wants (2.5.5 / platform touch guidance), so on a phone they are
+   hittable but fiddly.
+
+   Keyed to `pointer: coarse` rather than a width breakpoint: the constraint
+   is the input device, not the viewport, so a small window on a desktop keeps
+   its compact chrome while a tablet gets full-size targets. It also means the
+   e2e suite — every project runs a fine pointer — measures exactly the
+   geometry it did before.
+
+   The timeline steppers are deliberately left at 26×26: at 390px only 3.2px
+   separates them from the 44px-tall scrubber track, so a 44px hit area would
+   swallow drags meant for the slider, and their centres are 31.6px apart, so
+   two 44px targets would also overlap each other. 26px already clears AA. */
+@media (pointer: coarse) {
+  .stories-link,
+  .clip-link,
+  .stories__invite,
+  .stories__button,
+  .stories__close,
+  .software-link,
+  .shortcuts-link,
+  .theme-toggle,
+  .share-button,
+  .export__button,
+  .compare-button,
+  .draw-button,
+  .actions__more-button,
+  .timeline__play,
+  .layer-selector__trigger {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* The layer options are the last coarse target still on the AA floor rather
+     than the touch guidance: measured 197x30.2 at 667x375, 768x1024, 820x1180
+     and 1024x1366 — every size that gets the two-column panel. The phone
+     layout was already fine (47.3-61.9 at 390x844 and 360x740) because one
+     column turns the caption on, which is why a width-keyed check never saw
+     this; the miss is exactly the widths where the caption is off.
+
+     Unlike the badge above, a transparent `::after` buys nothing here. The
+     options are block children of `.layer-selector__group` with no gap
+     between them, so the vertical pitch IS the 30px box: any area grown
+     downward is taken straight back by the next option, which comes later in
+     the DOM and wins. The height has to be real.
+
+     Growing it is free of the HUD trap that usually makes this expensive:
+     `.layer-selector__panel` is absolutely positioned with its own
+     `max-height: 46vh` and `overflow-y: auto`, so the 14px per option goes
+     to the dropdown's scroll height and never to the globe's chrome — the
+     same reasoning LayerSelector.ts already cites for putting the caption in
+     here. Centring keeps the label optically where it was inside the taller
+     box, and the column direction preserves the caption stacking under it at
+     phone widths. */
+  .layer-selector__option {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+/* --- Small-phone layout (issue #24) -------------------------------------------
+   At ≤540px the brand shrinks so the search box fits beside it, the keyboard
+   hint line (meaningless on touch) disappears, and the panel and probe tighten.
+   The bar itself moved to the block below, which a short viewport now shares:
+   turning the right-hand column into a bottom app bar is thumb-reachable at
+   this width, but at a landscape height it is the only way the toggles are
+   reachable at all. */
+@media (max-width: 540px) {
+  .brand {
+    font-size: 1.15rem;
+  }
+
+  .search {
+    width: min(320px, 62vw);
+  }
+}
+
+/* Phones, and phones held sideways: the labeled panel does not fit as a
+   column, so it becomes a bottom sheet. Collapsed it is only the Map handle,
+   which is what leaves the folded dock and the credits tappable.
+   e2e/landscape-overlays.spec.ts opens the sheet and reaches every toggle.
+   e2e/phone-attribution-clearance.spec.ts hit-tests the credits row while the
+   sheet is still collapsed. */
+@media (max-width: 540px), (max-height: 460px) {
+  .toolbar {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-height: min(72vh, 640px);
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .toolbar.is-collapsed {
+    max-height: none;
+  }
+
+  .toolbar.is-collapsed .toolbar__body {
+    display: none;
+  }
+
+  .toolbar__handle:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    width: 100%;
+    min-height: 44px;
+    padding: 0.4rem 0.75rem 0.5rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 650;
+    color: var(--fg);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .toolbar__grab {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+
+  /* The collapsed handle is what the dock stands on. An open sheet covers the
+     dock on purpose, and Toolbar.ts keeps publishing the handle height then
+     so the dock does not jump. */
+  .overlay--bottom {
+    bottom: var(--toolbar-height, 3.25rem);
+    padding-bottom: 0.4rem;
+  }
+}
+
+/* A phone held in landscape has 360-430px of height, and the bar, the credits
+   and the folded dock all stack up from the bottom toward its middle. The
+   credits line is the one that wraps there: at 740px it breaks onto two lines
+   and pushes the dock over the centre of the view. A notch smaller, it fits
+   on one, and the folded dock clears the middle. */
+@media (max-height: 460px) and (min-width: 541px) {
+  .attribution {
+    font-size: 0.66rem;
+  }
+}
+
+@media (max-width: 540px) {
+  /* The credits row is the only HUD surface with nothing painted under it, and
+     the phone layout is where the globe reaches it: above 540px the row sits on
+     the page background and measures a uniform 5.54:1, while at 540px and below
+     it is lifted onto the imagery and its backdrop becomes whatever pixels
+     happen to be behind it. Measured over the boot view, the worst pixel falls
+     to 1.01:1 and 33-64% of the row's backdrop sits under the 4.5:1 AA
+     threshold for 12px text (360px is the worst case, 540px the mildest). What
+     goes unread is the provenance line itself — the four data-source credits
+     plus the "Data providers", repository and feedback controls that
+     phone-attribution-clearance.spec.ts already keeps tappable. That spec is
+     hit tests by design ("the row was always *drawn*"), so nothing until now
+     asserted the row could be READ.
+
+     Every other panel already answers this with `--panel-bg` and a blur, so the
+     row gets the same treatment rather than a new idiom. The plate itself is
+     declared once beside `.attribution` near the top of this file, together
+     with the reason it is a pseudo-element and not padding; all this block does
+     is switch it on for the phone layout in BOTH themes. Dark theme turns it on
+     at every width, because there the globe reaches the row at desktop sizes
+     too — light theme is the one that needs the breakpoint, since above 540px
+     its backdrop is the flat page colour at 5.54:1. */
+  .attribution::before {
+    content: "";
+  }
+  .probe {
+    bottom: 14rem;
+  }
+}
+
+.probe__segment[hidden] {
+  display: none;
+}
+
+/* --- Search place insights -------------------------------------------------- */
+.place-insights {
+  position: absolute;
+  top: clamp(13rem, 30vh, 18rem);
+  left: clamp(0.75rem, 2vw, 1.25rem);
+  z-index: 6;
+  display: none;
+  width: min(390px, calc(100vw - 2rem));
+  /* Stop above the bottom overlay and scroll: a state's readings run to
+     thousands of pixels, which used to fall off the bottom out of reach. */
+  max-height: calc(100vh - clamp(13rem, 30vh, 18rem) - 9rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.85rem;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+  pointer-events: auto;
+}
+
+.place-insights.is-open {
+  display: block;
+}
+
+.place-insights__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.place-insights__title {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.place-insights__close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--fg);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.place-insights__close:hover {
+  background: var(--accent-soft);
+}
+
+.place-insights__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The range: preset chips, then the two years they resolve to. */
+.place-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.place-range__presets {
+  display: flex;
+  padding: 2px;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+}
+
+.place-range__preset {
+  min-width: 2.4rem;
+  padding: 0.28rem 0.55rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.place-range__preset:hover {
+  color: var(--fg);
+}
+
+.place-range__preset[aria-pressed="true"] {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+.place-range__years {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.place-range__year {
+  padding: 0.22rem 0.3rem;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.place-range__arrow {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.place-insights__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+/* One measurement: what it is, how much it moved, and from what to what. */
+.place-card {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.6rem 0.65rem 0.55rem;
+  color: var(--fg);
+  text-align: left;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-inner);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.place-card[hidden] {
+  display: none;
+}
+
+.place-card:hover {
+  border-color: var(--control-border-hover);
+}
+
+.place-card[aria-pressed="true"] {
+  background: var(--accent-faint);
+  border-color: var(--accent);
+}
+
+.place-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+.place-card__label,
+.place-card__span,
+.place-stat__label,
+.place-stat__sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+.place-card__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.place-card__years {
+  flex: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+}
+
+.place-card__delta {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.place-card__span {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+
+.place-card[data-tone="warm"] .place-card__delta {
+  color: var(--tone-warm);
+}
+
+.place-card[data-tone="cool"] .place-card__delta {
+  color: var(--tone-cool);
+}
+
+.place-card[data-tone="green"] .place-card__delta {
+  color: var(--tone-green);
+}
+
+.place-card[data-tone="flat"] .place-card__delta,
+.place-card[data-tone="empty"] .place-card__delta,
+.place-card[data-tone="loading"] .place-card__delta {
+  color: var(--muted);
+}
+
+.place-card[data-tone="loading"] .place-card__delta {
+  animation: place-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes place-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .place-card[data-tone="loading"] .place-card__delta {
+    animation: none;
+  }
+}
+
+/* Hazards: three figures in one row. */
+.place-hazards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.2rem;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-inner);
+}
+
+.place-stat {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0 0.45rem;
+}
+
+.place-stat + .place-stat {
+  border-left: 1px solid var(--control-border);
+}
+
+.place-stat__label {
+  font-size: 0.64rem;
+  font-weight: 600;
+}
+
+.place-stat__value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.place-stat__sub {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+}
+
+.place-insights__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.place-insights__note {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.3;
+}
+
+.place-insights__download {
+  flex: none;
+  padding: 0.25rem 0.7rem;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.place-insights__download:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.place-insights__download:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (max-width: 540px) {
+  .place-insights {
+    top: auto;
+    bottom: 8.5rem;
+    max-height: min(21rem, calc(100vh - 12rem));
+    overflow-y: auto;
+  }
+}
+
+/* A search opens this panel and the full-record chart together, and both are
+   anchored to the left edge. Where the window is wide enough to keep the place
+   visible between them, this panel moves to the right, clear of the tool rail
+   and the action pill; anywhere narrower it steps aside until the chart is
+   closed. */
+@media (min-width: 1100px) {
+  body:has(.probe.is-open) .place-insights {
+    top: 7.5rem;
+    /* The rail is 75px wide, 90px once a short window gives it a scrollbar. */
+    right: 7.5rem;
+    left: auto;
+    max-height: calc(100vh - 16.5rem);
+  }
+}
+
+@media (max-width: 1099px) {
+  body:has(.probe.is-open) .place-insights {
+    display: none;
+  }
+}
+
+/* --- Error toast (uncaught failures, bottom-center) --------------------------- */
+/* The live-region root is always rendered so screen readers can observe the
+   message arriving; it carries only placement and paints nothing while empty.
+   All the chrome lives on __box, which is inserted and removed. */
+.error-toast {
+  position: fixed;
+  bottom: calc(clamp(1rem, 3vw, 2rem) + 4.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  pointer-events: none;
+}
+
+.error-toast__box {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(92vw, 34rem);
+  padding: 0.55rem 0.6rem 0.55rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--warn-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.error-toast__text {
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.error-toast__close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.error-toast__close:hover {
+  color: var(--fg);
+}
+
+.error-toast__close svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Offline banner (issue #106) — quiet and persistent, above the timeline.
+   Same split as the toast: the root is the always-rendered live region, the
+   pill is the visible chrome that comes and goes. */
+.offline-banner {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  pointer-events: none;
+}
+
+.offline-banner__pill {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--warn-border);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Search status row: failure / no-matches feedback (issue #74) */
+.search__message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  list-style: none;
+}
+.search__orb {
+  flex: none;
+}
+
+/* --- Stories (StoryCard.ts) -------------------------------------------------
+   Top left, under the wordmark: the corner the header left free when its
+   controls moved into the actions pill. Below 900px the pill spans more of the
+   top, so the card drops beneath it. It is one line (the invitation) until a
+   story is asked for, so a first visit's globe stays uncovered. */
+.stories {
+  position: absolute;
+  top: calc(clamp(1rem, 3vw, 2rem) + 56px);
+  left: clamp(1rem, 3vw, 2rem);
+  z-index: 4;
+  width: min(340px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+/* The map panel occupies the right 21rem. A card as wide as 340px runs under
+   that panel once the window is narrower than about 700px, and Skip — the
+   control at the card's right edge — stops taking clicks. Keep the card in
+   the free strip. Phones turn the panel into a bottom sheet, so this only
+   applies while the panel is still a column. */
+@media (min-width: 541px) and (min-height: 461px) {
+  .stories {
+    width: min(340px, calc(100vw - 21rem - 2.75rem));
+  }
+}
+
+.stories > * {
+  pointer-events: auto;
+}
+
+.intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.8rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 14px;
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+}
+
+.intro[hidden] {
+  display: none;
+}
+
+.intro__caption {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--fg);
+}
+
+.intro__skip {
+  flex: none;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--bg);
+  background: var(--fg);
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.stories__invite[hidden],
+.stories__card[hidden] {
+  display: none;
+}
+
+.stories__invite,
+.stories__card {
+  background: var(--panel-bg);
+  border: 1px solid var(--control-border);
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+}
+
+.stories__invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 36px;
+  padding: 0 0.95rem 0 0.8rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--fg);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.stories__invite svg {
+  width: 14px;
+  height: 14px;
+}
+
+.stories__invite:hover {
+  border-color: var(--control-border-hover);
+}
+
+.stories__card {
+  position: relative;
+  padding: 0.85rem 1rem 1rem;
+  border-radius: 20px;
+}
+
+.stories__eyebrow {
+  margin: 0 2rem 0.35rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.stories__title {
+  margin: 0 2rem 0.35rem 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.stories__blurb {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.stories__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stories__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 0.9rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.stories__button:hover {
+  border-color: var(--control-border-hover);
+}
+
+.stories__button.is-recording::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: #e5484d;
+}
+
+.stories__button:disabled {
+  cursor: progress;
+}
+
+.stories__button--primary {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+.stories__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.stories__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.stories__close:hover {
+  color: var(--fg);
+  background: var(--control-bg);
+}
+
+.stories__invite:focus-visible,
+.stories__button:focus-visible,
+.stories__close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 899px) {
+  .stories {
+    top: calc(clamp(0.75rem, 2vw, 1.25rem) + 116px);
+  }
+}
+
+@media (max-width: 540px) {
+  .stories {
+    left: clamp(0.75rem, 2vw, 1.25rem);
+    width: calc(100vw - 2 * clamp(0.75rem, 2vw, 1.25rem));
+  }
+}
+
+/* A short screen has ~80px between the wordmark and the folded dock, so the
+   card is one row: the title, Next and close. Replay, the dates and the
+   caption give way; the dock's month readout carries the progress. Measured
+   at 568x320, two rows reached 13px into the dock. */
+@media (max-height: 460px) {
+  .stories {
+    top: calc(clamp(1rem, 3vw, 2rem) + 36px);
+    width: min(320px, calc(100vw - 2rem));
+  }
+
+  .stories__eyebrow,
+  .stories__blurb,
+  .stories__button:not(.stories__button--primary) {
+    display: none;
+  }
+
+  .stories__card {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 2.9rem 0.35rem 0.8rem;
+  }
+
+  .stories__title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stories__actions {
+    flex: none;
+  }
+
+  .stories__close {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+/* WebGL-unavailable fallback (shown inside the loader, issue #87) */
+.loader__fallback {
+  max-width: 34rem;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+.loader__fallback h2 {
+  font-size: 1.3rem;
+  color: var(--fg);
+}
+
+.loader__fallback p {
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.loader__fallback a {
+  color: var(--accent);
+}
+
+/* Imagery-failure retry, next to the status line (issue #88) */
+.status-retry {
+  flex: none; /* the meta line's status ellipsises; the button never does */
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-strong);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+}
+
+.status-retry[hidden] {
+  display: none;
+}
+
+/* The panel's top and max-height live on `.toolbar` itself. It is anchored
+   under the actions pill and stops 16rem short of the window, which is the
+   room the dock and the credits need. A later breakpoint that recentres it
+   or pins `top: 200px` puts the panel over Compare again. */
+
+/* --- Place vs place --------------------------------------------------------
+   A card beside the map, not a modal. The globe keeps receiving drags
+   everywhere the card does not cover. On a phone it sits above the dock. */
+.compare-pins {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.compare-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0.12rem 0.45rem 0.12rem 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: #081018;
+  background: #f4f7fb;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.compare-pin::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.28rem;
+  border-radius: 999px;
+  vertical-align: -0.05rem;
+  background: #4ea1ff;
+}
+
+.compare-pin--b::before {
+  background: #ffb020;
+}
+
+.place-compare {
+  position: absolute;
+  z-index: 5;
+  top: 4.6rem;
+  left: 0.85rem;
+  display: none;
+  width: min(22rem, calc(100vw - 1.7rem));
+  max-height: calc(100vh - 14rem);
+  overflow: auto;
+  padding: 0.75rem 0.8rem 0.85rem;
+  color: var(--fg);
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--surface-edge), var(--surface-shadow);
+  backdrop-filter: var(--material-blur);
+  pointer-events: auto;
+}
+
+.place-compare.is-open {
+  display: block;
+}
+
+.place-compare.is-collapsed {
+  max-height: none;
+  overflow: hidden;
+}
+
+.place-compare__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.place-compare__title {
+  margin: 0;
+  min-width: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.place-compare__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.place-compare__close,
+.place-compare__collapse {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.place-compare__close:hover,
+.place-compare__collapse:hover {
+  background: var(--accent-soft);
+}
+
+.place-compare__close svg,
+.place-compare__collapse svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.place-compare__collapse svg {
+  transform: rotate(90deg);
+}
+
+.place-compare.is-collapsed .place-compare__collapse svg {
+  transform: rotate(-90deg);
+}
+
+.place-compare.is-collapsed .place-compare__body {
+  display: none;
+}
+
+.place-compare__meta,
+.place-compare__note,
+.place-compare__sentence,
+.place-compare__source,
+.place-compare__map-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.place-compare__meta,
+.place-compare__source,
+.place-compare__map-note {
+  color: var(--muted);
+}
+
+.place-compare__sentence {
+  font-size: 0.95rem;
+}
+
+.place-compare__note {
+  color: var(--accent);
+}
+
+.place-compare__places {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+}
+
+.place-compare__places[hidden],
+.place-compare__chart[hidden],
+.place-compare__note[hidden],
+.place-compare__meta[hidden],
+.place-compare__source[hidden],
+.place-compare__map-note[hidden],
+.place-compare__secondary[hidden] {
+  display: none;
+}
+
+.place-compare__name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.place-compare__swatch {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #4ea1ff;
+}
+
+.place-compare__swatch--b {
+  background: #ffb020;
+}
+
+.place-compare__primary {
+  margin-top: 0.12rem;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.place-compare__secondary {
+  margin-top: 0.1rem;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.place-compare__chart {
+  margin-top: 0.7rem;
+}
+
+.place-compare__chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.place-compare__chart text {
+  fill: var(--muted);
+  font-size: 9px;
+  font-family: var(--font-mono, sans-serif);
+}
+
+.place-compare__source,
+.place-compare__map-note {
+  font-size: 0.68rem;
+}
+
+@media (max-width: 540px), (max-height: 460px) {
+  .place-compare {
+    top: auto;
+    right: 0.5rem;
+    bottom: calc(var(--toolbar-height, 3.25rem) + 15rem);
+    left: 0.5rem;
+    width: auto;
+    max-height: min(34vh, 16.5rem);
+  }
+
+  .place-compare__primary {
+    font-size: 1.4rem;
+  }
+}

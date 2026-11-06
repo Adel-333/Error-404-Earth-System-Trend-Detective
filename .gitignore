@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Vite cache
+.vite/
+
+# Test artifacts
+playwright-report/
+blob-report/
+test-results/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Reference and archive
+.reference-repos/
+_archive_old_prototype/
+*.zip

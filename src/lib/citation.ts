@@ -1,0 +1,404 @@
+import {
+  citedVectorSources,
+  type VectorSourceCitation,
+} from "./citedVectorSources";
+import { datasetArchive } from "./datasetArchives";
+import { datasetReadoutNote } from "./citedDatasetReadout";
+import { doiResolverUrl } from "./doiLink";
+import { citedDatasets } from "./providers";
+import type { DatasetRef } from "./timeline";
+
+/**
+ * Machine-readable citations (ESIP data & software citation guidelines):
+ * export the tool and its source datasets in the formats reference managers
+ * ingest — BibTeX (LaTeX), RIS (EndNote/Zotero/Mendeley), and CSL-JSON (the
+ * Citation Style Language item format that pandoc, Quarto, and Zotero's
+ * "Better BibTeX" round-trip) — each carrying a resolvable DOI wherever the
+ * source has one, rather than a bare URL. A researcher should be able to copy a
+ * citation and drop it straight into a manuscript or a `references.json`.
+ *
+ * "Sources" means everything the app renders, not just the imagery: the GIBS
+ * products behind the layers and the vector datasets behind the volcano,
+ * earthquake, and plate-boundary overlays. One of those (the USGS feed) has no
+ * DOI at all; it is cited by URL and says so, because dropping it from the
+ * bundle would silently under-credit data the reader can plainly see on screen.
+ *
+ * Pure and tested; the in-app "Copy citation" affordance calls these.
+ */
+
+/**
+ * The resolver-link encoder now lives in the leaf module `doiLink.ts` so the
+ * non-citation call sites that emit DOI links (the probe CSV header, the legend
+ * link, the narrative source credits) can share it without pulling the provider
+ * catalog into their bundle chunk. Re-exported here because this is where
+ * citation-side callers expect to find it.
+ */
+export { DOI_RESOLVER, doiResolverUrl } from "./doiLink";
+
+/** Tool metadata, kept in step with CITATION.cff (the human-facing source). */
+export const TOOL_CITATION = {
+  title: "RoamingEye: an open-data 3D Earth for temporal satellite observation",
+  author: "The RoamingEye contributors",
+  version: __APP_VERSION__,
+  year: 2026,
+  url: "https://github.com/zkWizard/RoamingEye",
+  license: "MIT",
+} as const;
+
+/**
+ * Escape the characters that break a BibTeX/LaTeX field. Single pass over a
+ * char class that INCLUDES the backslash escape character itself — mapping
+ * each char to its complete escape so an inserted `\textbackslash{}` isn't
+ * re-mangled by the brace rules (and so the escaping is complete, not partial:
+ * a stray backslash can't slip through unescaped).
+ */
+const BIBTEX_ESCAPES: Record<string, string> = {
+  "\\": "\\textbackslash{}",
+  "{": "\\{",
+  "}": "\\}",
+  "#": "\\#",
+  $: "\\$",
+  "%": "\\%",
+  "&": "\\&",
+  _: "\\_",
+};
+
+function bibtexEscape(s: string): string {
+  return s.replace(/[\\{}#$%&_]/g, (c) => BIBTEX_ESCAPES[c]);
+}
+
+/** BibTeX @software entry for the tool. */
+export function bibtexTool(): string {
+  const t = TOOL_CITATION;
+  return [
+    `@software{roamingeye,`,
+    `  title = {${bibtexEscape(t.title)}},`,
+    `  author = {${bibtexEscape(t.author)}},`,
+    `  version = {${t.version}},`,
+    `  year = {${t.year}},`,
+    `  url = {${t.url}},`,
+    `  license = {${t.license}}`,
+    `}`,
+  ].join("\n");
+}
+
+/** A stable, ASCII BibTeX key from a dataset short name. */
+function datasetKey(ref: DatasetRef): string {
+  return `dataset_${ref.shortName.replace(/[^A-Za-z0-9]/g, "")}_v${ref.version.replace(/[^A-Za-z0-9]/g, "")}`;
+}
+
+/**
+ * BibTeX @misc entry for a source dataset, with its DOI and the note recording
+ * how RoamingEye actually read it (citedDatasetReadout.ts) — so a copied entry
+ * never credits the archived product for numbers recovered from its imagery.
+ */
+export function bibtexDataset(ref: DatasetRef): string {
+  const archive = datasetArchive(ref.doi);
+  return [
+    `@misc{${datasetKey(ref)},`,
+    `  title = {${bibtexEscape(ref.title)} (${ref.shortName} v${ref.version})},`,
+    ...(archive ? [`  publisher = {${bibtexEscape(archive.name)}},`] : []),
+    `  doi = {${ref.doi}},`,
+    `  note = {${bibtexEscape(datasetReadoutNote(ref))}},`,
+    `  url = {${doiResolverUrl(ref.doi)}}`,
+    `}`,
+  ].join("\n");
+}
+
+/** RIS entry for the tool (TY=COMP, software). */
+export function risTool(): string {
+  const t = TOOL_CITATION;
+  return [
+    `TY  - COMP`,
+    `TI  - ${t.title}`,
+    `AU  - ${t.author}`,
+    `PY  - ${t.year}`,
+    `ET  - ${t.version}`,
+    `UR  - ${t.url}`,
+    `ER  - `,
+  ].join("\n");
+}
+
+/** RIS entry for a source dataset (TY=DATA), with its DOI. */
+export function risDataset(ref: DatasetRef): string {
+  const archive = datasetArchive(ref.doi);
+  return [
+    `TY  - DATA`,
+    `TI  - ${ref.title} (${ref.shortName} v${ref.version})`,
+    ...(archive ? [`PB  - ${archive.name}`] : []),
+    `DO  - ${ref.doi}`,
+    `UR  - ${doiResolverUrl(ref.doi)}`,
+    `N1  - ${datasetReadoutNote(ref)}`,
+    `ER  - `,
+  ].join("\n");
+}
+
+/**
+ * Human-readable formatted-text citation for the tool. Unlike BibTeX/RIS —
+ * which target reference managers — this is the string to drop into a figure
+ * caption, slide, or a "How to cite" box, following the ESIP software-citation
+ * ordering: author (year), title, version, resource type, resolvable DOI/URL.
+ */
+export function textTool(): string {
+  const t = TOOL_CITATION;
+  return `${t.author} (${t.year}). ${t.title} (Version ${t.version}) [Software]. ${t.url}`;
+}
+
+/**
+ * Human-readable formatted-text citation for a source dataset. Built only from
+ * the provenance fields we actually hold (title, short name, version, DOI) and
+ * the archive that published the DOI — no author or release date is invented, so
+ * the string never over-claims metadata the DatasetRef does not carry. A dataset
+ * with no verified archive names none rather than borrowing one (see
+ * datasetArchives.ts). The DOI is rendered as a resolvable link, per the ESIP
+ * data-citation guidelines, and the readout note closes the string the way a
+ * vector source's note does — this is the form that ends up in a figure caption,
+ * where the indirection is easiest to lose.
+ */
+export function textDataset(ref: DatasetRef): string {
+  const archive = datasetArchive(ref.doi);
+  const publisher = archive ? `${archive.name}. ` : "";
+  return `${ref.title} (${ref.shortName} v${ref.version}) [Data set]. ${publisher}${doiResolverUrl(ref.doi)}. ${datasetReadoutNote(ref)}`;
+}
+
+/**
+ * A CSL-JSON item (Citation Style Language, the item shape pandoc/Quarto/Zotero
+ * ingest). Only the subset of standard CSL variables we can populate from the
+ * provenance we actually hold is typed here — nothing is invented. Optional
+ * fields are omitted entirely (not emitted as null) when the source lacks them,
+ * so the item never over-claims metadata: the tool carries no DOI, and a
+ * DatasetRef carries no author or publication date.
+ */
+export interface CslName {
+  /** Organizational/collective name as a single literal (no family/given split). */
+  literal: string;
+}
+
+export interface CslDate {
+  /** CSL date encoding; a year-only date is `[[year]]`. */
+  "date-parts": number[][];
+}
+
+export interface CslItem {
+  /** Stable citation key (matches the BibTeX key for the same work). */
+  id: string;
+  /**
+   * CSL item type: the tool is "software", a data product is a "dataset", and
+   * "article-journal" covers a source whose DOI resolves to the paper defining
+   * the model rather than to a data product (see citedVectorSources.ts).
+   */
+  type: "software" | "dataset" | "article-journal";
+  title: string;
+  author?: CslName[];
+  issued?: CslDate;
+  version?: string;
+  publisher?: string;
+  /** Journal or database the work appeared in, per CSL's `container-title`. */
+  "container-title"?: string;
+  volume?: string;
+  issue?: string;
+  /** Bare DOI (no resolver prefix), per CSL's `DOI` variable. */
+  DOI?: string;
+  URL?: string;
+  /** Free-text qualification a reader needs, per CSL's `note` variable. */
+  note?: string;
+}
+
+/** CSL-JSON item for the tool (type "software"). */
+export function cslTool(): CslItem {
+  const t = TOOL_CITATION;
+  return {
+    id: "roamingeye",
+    type: "software",
+    title: t.title,
+    author: [{ literal: t.author }],
+    issued: { "date-parts": [[t.year]] },
+    version: t.version,
+    URL: t.url,
+  };
+}
+
+/**
+ * CSL-JSON item for a source dataset (type "dataset"), carrying its DOI as both
+ * the bare `DOI` variable and a resolvable `URL`. Built only from the provenance
+ * fields the DatasetRef holds and the archive that published the DOI — no author
+ * or release date is invented, and a dataset with no verified archive omits
+ * `publisher` entirely rather than being attributed to a plausible one (see
+ * datasetArchives.ts). The `URL` goes through `doiResolverUrl` like every other
+ * format's link; CSL's `DOI` variable is specified as the bare DOI name, so it
+ * is the one field that must stay unencoded.
+ */
+export function cslDataset(ref: DatasetRef): CslItem {
+  const archive = datasetArchive(ref.doi);
+  return {
+    id: datasetKey(ref),
+    type: "dataset",
+    title: `${ref.title} (${ref.shortName} v${ref.version})`,
+    ...(archive ? { publisher: archive.name } : {}),
+    version: ref.version,
+    DOI: ref.doi,
+    URL: doiResolverUrl(ref.doi),
+    note: datasetReadoutNote(ref),
+  };
+}
+
+/**
+ * Serialize CSL items as a pretty-printed JSON array with a trailing newline —
+ * the on-disk shape of a `references.json` a manuscript pipeline reads.
+ */
+export function cslJson(items: readonly CslItem[]): string {
+  return JSON.stringify(items, null, 2) + "\n";
+}
+
+/**
+ * The formatters above are specific to a CMR `DatasetRef`: they look the
+ * publisher up by DOI in the NASA archive registry (datasetArchives.ts) and
+ * assume a short name, a version, and a DOI. The globe also renders four
+ * vector datasets that are none of those things (see citedVectorSources.ts),
+ * and none of them is archived by a NASA DAAC, so they get their own formatters
+ * carrying their own publishers rather than being squeezed into a shape built
+ * for NASA products.
+ *
+ * Each formatter emits only the fields the source actually holds. A source with
+ * no DOI is located by its URL alone — no DOI field is emitted empty, and none
+ * is borrowed — and its qualifying `note` travels with the entry so the
+ * limitation is not lost between the app and the manuscript.
+ */
+
+/** BibTeX entry for a rendered vector source. */
+export function bibtexVectorSource(ref: VectorSourceCitation): string {
+  const entry = ref.type === "article-journal" ? "article" : "misc";
+  const title =
+    ref.version === undefined
+      ? bibtexEscape(ref.title)
+      : `${bibtexEscape(ref.title)} (v${bibtexEscape(ref.version)})`;
+  const lines = [`@${entry}{${ref.key},`, `  title = {${title}},`];
+  if (ref.author) lines.push(`  author = {${bibtexEscape(ref.author)}},`);
+  if (ref.containerTitle)
+    lines.push(`  journal = {${bibtexEscape(ref.containerTitle)}},`);
+  if (ref.volume) lines.push(`  volume = {${bibtexEscape(ref.volume)}},`);
+  if (ref.issue) lines.push(`  number = {${bibtexEscape(ref.issue)}},`);
+  if (ref.year !== undefined) lines.push(`  year = {${ref.year}},`);
+  if (ref.publisher)
+    lines.push(`  publisher = {${bibtexEscape(ref.publisher)}},`);
+  if (ref.version !== undefined)
+    lines.push(`  version = {${bibtexEscape(ref.version)}},`);
+  if (ref.doi) lines.push(`  doi = {${bibtexEscape(ref.doi)}},`);
+  if (ref.note) lines.push(`  note = {${bibtexEscape(ref.note)}},`);
+  // The locator closes the entry, so it carries no trailing comma.
+  lines.push(`  url = {${ref.doi ? doiResolverUrl(ref.doi) : ref.url}}`);
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
+/** RIS entry for a rendered vector source (TY=DATA, or JOUR for an article). */
+export function risVectorSource(ref: VectorSourceCitation): string {
+  const lines = [
+    `TY  - ${ref.type === "article-journal" ? "JOUR" : "DATA"}`,
+    `TI  - ${ref.version === undefined ? ref.title : `${ref.title} (v${ref.version})`}`,
+  ];
+  if (ref.author) lines.push(`AU  - ${ref.author}`);
+  if (ref.year !== undefined) lines.push(`PY  - ${ref.year}`);
+  if (ref.containerTitle) lines.push(`JO  - ${ref.containerTitle}`);
+  if (ref.volume) lines.push(`VL  - ${ref.volume}`);
+  if (ref.issue) lines.push(`IS  - ${ref.issue}`);
+  if (ref.publisher) lines.push(`PB  - ${ref.publisher}`);
+  if (ref.doi) lines.push(`DO  - ${ref.doi}`);
+  lines.push(`UR  - ${ref.doi ? doiResolverUrl(ref.doi) : ref.url}`);
+  if (ref.note) lines.push(`N1  - ${ref.note}`);
+  lines.push(`ER  - `);
+  return lines.join("\n");
+}
+
+/**
+ * Human-readable formatted-text citation for a rendered vector source. When the
+ * repo holds the publisher's own reference string it is used verbatim, so the
+ * rendered citation is the publisher's wording rather than a reconstruction.
+ */
+export function textVectorSource(ref: VectorSourceCitation): string {
+  const head =
+    ref.formattedCitation ??
+    [
+      ref.publisher,
+      ref.version === undefined ? ref.title : `${ref.title} (v${ref.version})`,
+      ref.type === "article-journal" ? undefined : "[Data set]",
+    ]
+      .filter((part) => part !== undefined)
+      .join(". ");
+  const locator = ref.doi ? doiResolverUrl(ref.doi) : ref.url;
+  return [head, locator, ref.note].filter(Boolean).join(". ");
+}
+
+/** CSL-JSON item for a rendered vector source. */
+export function cslVectorSource(ref: VectorSourceCitation): CslItem {
+  const item: CslItem = {
+    id: ref.key,
+    type: ref.type,
+    title:
+      ref.version === undefined ? ref.title : `${ref.title} (v${ref.version})`,
+    URL: ref.doi ? doiResolverUrl(ref.doi) : ref.url,
+  };
+  if (ref.author) item.author = [{ literal: ref.author }];
+  if (ref.year !== undefined) item.issued = { "date-parts": [[ref.year]] };
+  if (ref.version !== undefined) item.version = ref.version;
+  if (ref.publisher) item.publisher = ref.publisher;
+  if (ref.containerTitle) item["container-title"] = ref.containerTitle;
+  if (ref.volume) item.volume = ref.volume;
+  if (ref.issue) item.issue = ref.issue;
+  if (ref.doi) item.DOI = ref.doi;
+  if (ref.note) item.note = ref.note;
+  return item;
+}
+
+export type CitationFormat = "bibtex" | "ris" | "text" | "csljson";
+
+/**
+ * The full citation bundle a researcher needs: the tool, every GIBS source
+ * dataset it renders (deduplicated by DOI), and the vector sources behind the
+ * volcano, earthquake, and plate-boundary overlays — in the requested format,
+ * ready to paste into a reference manager.
+ *
+ * Every entry, imagery and vector alike, carries the note qualifying how
+ * RoamingEye actually read that source (citedDatasetReadout.ts), so a citation
+ * that leaves the app cannot present a recovered value as the archived
+ * product's own.
+ *
+ * The two groups are kept in a fixed order (imagery, then vector) so the bundle
+ * is byte-stable across calls and diffable between releases.
+ */
+export function citationBundle(format: CitationFormat): string {
+  const datasets = citedDatasets().map((c) => c.dataset);
+  const vectors = citedVectorSources();
+  if (format === "ris") {
+    return (
+      [
+        risTool(),
+        ...datasets.map(risDataset),
+        ...vectors.map(risVectorSource),
+      ].join("\n\n") + "\n"
+    );
+  }
+  if (format === "text") {
+    return (
+      [
+        textTool(),
+        ...datasets.map(textDataset),
+        ...vectors.map(textVectorSource),
+      ].join("\n\n") + "\n"
+    );
+  }
+  if (format === "csljson") {
+    return cslJson([
+      cslTool(),
+      ...datasets.map(cslDataset),
+      ...vectors.map(cslVectorSource),
+    ]);
+  }
+  return (
+    [
+      bibtexTool(),
+      ...datasets.map(bibtexDataset),
+      ...vectors.map(bibtexVectorSource),
+    ].join("\n\n") + "\n"
+  );
+}
