@@ -27,7 +27,6 @@ export class InvestigationGlobe {
   private satellites: OrbitingSatellite[] = [];
   private pulseRings: THREE.Mesh[] = [];
   private earthGroup = new THREE.Group();
-  private isLoaded = false;
   private loaderEl: HTMLElement | null = null;
 
   constructor(parent: HTMLElement, geometry: InvestigationGeometry) {
@@ -79,7 +78,6 @@ export class InvestigationGlobe {
 
     // Mark loaded and fade in
     setTimeout(() => {
-      this.isLoaded = true;
       canvas.style.opacity = "1";
       if (this.loaderEl) {
         this.loaderEl.style.opacity = "0";
@@ -263,7 +261,6 @@ export class InvestigationGlobe {
       const incRad = (s.inclinationDeg * Math.PI) / 180;
       const nodeRad = (s.nodeDeg * Math.PI) / 180;
       const color = new THREE.Color(s.colorHex);
-      const lightCol = new THREE.Color(s.lightColor);
 
       // 1. Orbital Path Ring (Dashed/Transparent Blue/Silver)
       const orbitPoints: THREE.Vector3[] = [];

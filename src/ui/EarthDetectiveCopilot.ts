@@ -88,7 +88,6 @@ export class EarthDetectiveCopilot {
     this.messages.push({ sender: "user", text: query, time });
     
     // Add temporary thinking indicator
-    const thinkingId = "thinking-" + Date.now();
     this.messages.push({
       sender: "copilot",
       text: "⚡ *Consulting Gemini 3.1 & NASA Earth Science telemetry…*",

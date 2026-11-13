@@ -429,7 +429,6 @@ export class InvestigationAnalysisService {
     const dLat = 0.75;
     const dLon = 0.75;
     const baseSlope = primaryVariable.sens.slopePerYear * 10;
-    const sign = baseSlope >= 0 ? "+" : "";
     const unitStr = primaryVariable.unit;
 
     const northSlope = baseSlope * 1.12;

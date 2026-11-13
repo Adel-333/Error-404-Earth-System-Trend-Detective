@@ -1,101 +1,112 @@
-# 🛰️ Earth System Trend Detective — Error 404
-> **NASA Space Apps Challenge 2026** · *Challenge Category: Be an Earth System Trend Detective!*  
-> **Team:** Error 404 (`Adel-333`)  
-> **Repository:** [Adel-333/Error-404-Earth-System-Trend-Detective](https://github.com/Adel-333/Error-404-Earth-System-Trend-Detective)
+# Earth System Trend Detective
+
+**NASA Space Apps Challenge 2026** — *Category: Be an Earth System Trend Detective!*  
+**Team:** Error 404 (`Adel-333`)  
+**Repository:** [Adel-333/Error-404-Earth-System-Trend-Detective](https://github.com/Adel-333/Error-404-Earth-System-Trend-Detective)  
+**Deployment:** Production Single Page Application deployed via Vite and Vercel  
 
 ---
 
-## 🌍 Project Overview
-**Earth System Trend Detective** is an interactive, scientifically rigorous Earth-intelligence platform designed to analyze multi-decadal NASA Earth observations (2000–2026), discover long-term environmental trends, detect climate anomalies, and provide explainable AI-assisted insights.
+## 1. System Overview
+
+Earth System Trend Detective is a scientific climate analytics and planetary exploration platform. It is engineered to analyze multi-decadal NASA Earth observations (2000–2026), calculate robust monotonic environmental trajectories, identify extreme climatological anomalies, and deliver transparent, explainable climate intelligence.
+
+The architecture emphasizes scientific honesty, mathematical rigor, and data provenance. Every analytical output explicitly identifies its origin—distinguishing between verified satellite observation archives, non-parametric statistical proofs, and client-side methodological simulations.
 
 ---
 
-## 🔬 Scientific Architecture & Data Transparency (الصراحة والشفافية العلمية)
+## 2. Scientific Data Provenance and Observational Baselines
 
-To guarantee 100% scientific integrity, reproducibility, and honesty for the NASA Space Apps evaluation committee, this platform explicitly distinguishes between verified observation archives, statistical proofs, simulated baselines, and AI models:
+### 2.1 Live Satellite Composite Layers (NASA GIBS WMTS)
+The 3D planetary globe streams calibrated, full-resolution satellite composite tiles directly from the NASA Global Imagery Browse Services (GIBS) Web Map Tile Service (WMTS):
+- MOD13A3: Normalized Difference Vegetation Index (NDVI) and Enhanced Vegetation Index (EVI), 1 km resolution, Terra MODIS.
+- MOD11C3: Daytime Land Surface Temperature (LST), 0.05° resolution, Terra MODIS.
+- M2TMNXSLV: 2-meter Air Temperature Reanalysis, NASA GMAO MERRA-2.
+- MODIS Aqua L3 SST: Daytime Sea Surface Temperature, 9 km resolution.
+- GLDAS_NOAH025_M: Total Precipitation Rate and 0–10 cm Soil Moisture, GLDAS v2.1.
+- MOD10CM: Global Snow Cover Fraction, Terra MODIS.
 
-### 1. Actual Satellite Observations (Real NASA Data)
-* **Visual Imagery & 3D Globe Explorer:** 100% genuine live satellite composite tiles streamed directly from **NASA GIBS (Global Imagery Browse Services)** via WMTS:
-  * `MOD13A3` (NDVI & EVI Vegetation Index, 1km, Terra MODIS)
-  * `MOD11C3` (Daytime Land Surface Temperature LST, 0.05°, Terra MODIS)
-  * `M2TMNXSLV` (2-meter Air Temperature Reanalysis, NASA GMAO MERRA-2)
-  * `MODIS Aqua L3 SST` (Daytime Ocean Sea Surface Temperature, 9km)
-  * `GLDAS_NOAH025_M` (Total Precipitation & Soil Moisture 0-10cm)
-  * `MOD10CM` (Global Snow Cover Fraction)
-* **Quantitative Multi-Decadal Time Series (Investigation Workspace):**
-  * **Verified Ground-Truth Regions (100% Real NASA Data):**
-    For key global hotspot regions including:
-    * 🇪🇬 **Nile Delta Agro-System & Egyptian Western Desert**
-    * 🇧🇷 **Amazon Rainforest Basin**
-    * 🇹🇩 **Lake Chad Hydrological Recession Zone**
-    Data consists of genuine, non-simulated monthly observations (2000–2025) fetched directly from the **NASA GMAO MERRA-2 & POWER Archive** (stored in `public/data/nasa_real/`) providing instant 0ms retrieval with full physical units (°C, mm/month, wetness fraction).
-  * **Global Arbitrary Coordinates (High-Fidelity Physical Simulation):**
-    When exploring arbitrary coordinates outside these pre-curated observational archives, the platform employs the `ScientificSimulationEarthDataProvider`. It computes an empirical climatological model based on latitude, continentality, solar zenith seasonality, and red-noise AR(1) dynamics. Every output is transparently marked to prevent misleading judges.
+### 2.2 Quantitative Multi-Decadal Time Series (Investigation Workspace)
+For time-series decomposition and statistical trend discovery (2000–2026), the platform uses a hybrid dual-tier architecture:
 
----
+1. **Curated Ground-Truth Observation Archives (Verified Real NASA Data):**
+   For critical benchmark environmental hotspots, the platform bundles complete, non-simulated monthly observations (2000–2025) extracted directly from the NASA GMAO MERRA-2 and NASA POWER archives (located in `public/data/nasa_real/`):
+   - Nile River Delta Agricultural Basin (Egypt): Multi-decadal cropland dynamics, seasonal greenness, and land surface temperature trends.
+   - Egyptian Western Desert (Egypt): Hyper-arid thermal baselines and soil moisture constraints.
+   - Amazon River Basin (Brazil): Tropical rainforest vegetation resilience and hydrological flux.
+   - Lake Chad Basin (Chad): Hydrological recession dynamics and surface water balance.
 
-### 2. Statistical Engine (Empirical Proof vs. AI Hallucination)
-The platform **never** uses generative AI to invent historical climate trends. Instead, all monotonic trajectory evaluations rely on internationally recognized non-parametric statistical estimators:
-* **Seasonal Mann-Kendall Test (Hirsch & Slack 1982):** Computes rank correlation Kendall's $\tau$ and evaluates monotonic direction within identical calendar months across years ($p < 0.05$).
-* **Theil-Sen Robust Median Slope (Sen 1968):** Calculates the true median change rate per decade ($\Delta \text{unit}/\text{decade}$), completely impervious to sensor noise or missing months.
-* **Bivariate Pearson Matrix & Cross-Lagged Autocorrelation ($R^2$):** Analyzes multi-sensor coupling (e.g., LST vs. Vegetation or Soil Moisture vs. Precipitation).
+2. **Global Coordinates Climatological Baseline (Physical Simulation):**
+   When analyzing arbitrary coordinates outside the curated real archives, the system invokes the `ScientificSimulationEarthDataProvider`. It computes an empirical physical baseline derived from latitude-dependent solar insolation, continental thermal inertia, elevation lapse rates, and autoregressive AR(1) red-noise dynamics. The user interface explicitly labels all simulated data to preserve transparency for the evaluation committee.
 
 ---
 
-### 3. AI Modeling & Machine Learning (Methodological Simulation)
-* **Chronos-2 Probabilistic Forecaster (`amazon-science/chronos-forecasting`):**
-  * *Implementation:* Due to web client constraints and avoiding heavy multi-gigabyte PyTorch/GPU dependencies, the platform mathematically simulates the Chronos tokenized scaling and seasonal-decomposition logic in JavaScript (`EarthSystemAIEngine.generateForecast`).
-  * *Function:* Decomposes historical trends, extracts seasonal harmonics, and extrapolates probabilistic future trajectories (+24 months) with widening $80\%$ inter-quantile uncertainty cones ($P_{10}, P_{50}, P_{90}$).
-* **MOMENT Anomaly Detective (`moment-timeseries-foundation-model/moment`):**
-  * *Implementation:* Implements the unsupervised reconstruction-residual and Extreme Value Thresholding (EVT) principles of MOMENT via a robust Hampel/MAD (Median Absolute Deviation) filter.
-  * *Function:* Identifies extreme climatological excursions exceeding the $2.25\sigma$ residual threshold without requiring labeled disaster data.
+## 3. Statistical Trend Detection Framework
+
+Monotonic trajectory evaluations are computed using established non-parametric statistical methods rather than generative models:
+
+- **Seasonal Mann-Kendall Test (Hirsch & Slack 1982):**
+  Evaluates monotonic trends within individual calendar months across multi-decadal baselines, computing rank correlation Kendall's tau and assessing significance at p < 0.05.
+- **Theil-Sen Robust Median Slope Estimator (Sen 1968):**
+  Quantifies the median rate of change per decade, impervious to missing data points or extreme sensor outliers.
+- **Bivariate Pearson Matrix and Cross-Lagged Autocorrelation (R^2):**
+  Evaluates coupling between physical variables (e.g., Land Surface Temperature vs. Vegetation Index or Soil Moisture vs. Precipitation).
 
 ---
 
-### 4. Interactive Live AI Copilot (Gemini API Integration)
-The platform features **Erro 404**, an intelligent AI Climate Detective assistant:
-* **Engine:** Powered by live **Google Gemini API** (`models/gemini-3.1-flash-lite`).
-* **Telemetry Grounding:** Directly connected to active application telemetry (selected region coordinates, active satellite sensor, Theil-Sen drift rates, Mann-Kendall $p$-values, and detected anomaly scores).
-* **Bilingual Support:** Responds insightfully in fluent Arabic or English based on user queries, grounding all explanations in atmospheric thermodynamics and NASA satellite telemetry without hallucinations.
+## 4. Foundation Time-Series Modeling (Client-Side Simulations)
+
+To run entirely within standard client browsers without requiring server-side GPU clusters or multi-gigabyte PyTorch environments, the platform implements client-side mathematical simulations that mirror the core behavior of foundation models:
+
+- **Chronos-2 Probabilistic Forecaster (Simulating amazon-science/chronos-forecasting):**
+  Decomposes historical time series into trend and seasonal harmonics using tokenized scaling approximations. Extrapolates future trajectories (+24 months) alongside an 80% inter-quantile uncertainty cone (P10, P50, P90).
+- **MOMENT Anomaly Detective (Simulating moment-timeseries-foundation-model/moment):**
+  Applies unsupervised reconstruction-residual tracking and Extreme Value Thresholding (EVT) using a robust Median Absolute Deviation (MAD) filter, detecting anomalous deviations exceeding 2.25 sigma.
 
 ---
 
-## 🛠️ Project Structure
+## 5. Interactive Climate Intelligence (Erro 404 / Gemini Integration)
+
+The platform includes an AI Climate Detective copilot connected to the Google Gemini API (`models/gemini-3.1-flash-lite`):
+- **Telemetry Grounding:** System prompts receive real-time application context, including selected coordinates, active sensor layer, Theil-Sen drift rates, Mann-Kendall p-values, and detected anomaly scores.
+- **Scientific Query Processing:** Explains atmospheric, hydrological, and vegetative shifts based on physical principles, supporting inquiries in English and Arabic.
+
+---
+
+## 6. Directory Structure
 
 ```
+.
 ├── public/
 │   ├── data/
-│   │   ├── nasa_real/          # Curated real NASA MERRA-2 & POWER JSON time-series (Egypt, Amazon, Chad)
-│   │   ├── cities.json         # Global urban coordinates
-│   │   └── countries.geojson   # High-resolution boundary geometries
-│   └── erro-logo.jpg           # Official Error 404 team mascot
+│   │   ├── nasa_real/          # Curated real NASA MERRA-2 & POWER observation time series
+│   │   ├── cities.json         # Global reference cities
+│   │   └── countries.geojson   # Boundary geometry data
+│   └── erro-logo.jpg           # Application logo
 ├── src/
 │   ├── investigation/
-│   │   ├── aiEngine.ts         # Chronos-2 forecasting & MOMENT anomaly detection logic
-│   │   ├── analysis.ts         # Statistical Engine (Mann-Kendall, Sen's slope, Pearson matrix)
-│   │   ├── provider.ts         # Hybrid NASA provider (Real local observations + physical fallback)
-│   │   ├── globe.ts            # 3D interactive Earth globe with real-time orbiting NASA satellites
-│   │   └── workspace.ts        # Investigation workspace, charts, comparison deck, and Erro Gemini chat
+│   │   ├── aiEngine.ts         # Chronos-2 forecasting and MOMENT anomaly detection logic
+│   │   ├── analysis.ts         # Statistical engine (Mann-Kendall, Theil-Sen, Pearson matrix)
+│   │   ├── provider.ts         # Hybrid provider (Real NASA data + physical simulation)
+│   │   ├── globe.ts            # 3D interactive Earth sphere with satellite trajectories
+│   │   └── workspace.ts        # Analytical charts, comparison matrix, and Gemini telemetry chat
 │   ├── lib/
-│   │   ├── timeline.ts         # NASA GIBS WMTS layer catalog and date math (2000–2026)
-│   │   └── trend.ts            # Seasonal Mann-Kendall & Sen slope mathematical implementation
+│   │   ├── timeline.ts         # NASA GIBS WMTS layer registry and date calculations
+│   │   └── trend.ts            # Mathematical implementations of Mann-Kendall and Sen's slope
 │   ├── ui/
 │   │   ├── EarthDetectiveCopilot.ts  # Floating AI Copilot modal with Gemini API connection
-│   │   └── copilot.css         # Glassmorphism styling for AI assistant
-│   └── main.ts                 # Explorer view controller, 3D Cesium/Three.js globe
+│   │   └── copilot.css         # Copilot interface styles
+│   └── main.ts                 # Main Explorer view controller
+├── vercel.json                 # Vercel deployment configuration
 ├── package.json
 └── README.md
 ```
 
 ---
 
-## 🚀 Getting Started
+## 7. Deployment and Local Setup
 
-### Prerequisites
-* **Node.js:** v18.0.0 or higher
-* **npm:** v9.0.0 or higher
-
-### Installation & Run
+### Local Development
 ```bash
 # Clone the repository
 git clone https://github.com/Adel-333/Error-404-Earth-System-Trend-Detective.git
@@ -104,14 +115,27 @@ cd Error-404-Earth-System-Trend-Detective
 # Install dependencies
 npm install
 
-# Start development server
+# Start local development server
 npm run dev
 ```
 
-Navigate to `http://localhost:5173` to explore the interactive globe, or click **Analyze selection** to launch the Investigation workspace.
+### Production Build
+```bash
+# Compile and build production assets
+npm run build
+```
+
+### Vercel Deployment
+The repository includes a root `vercel.json` configured for Vite SPA routing:
+1. Connect the GitHub repository `Adel-333/Error-404-Earth-System-Trend-Detective` in the Vercel Dashboard.
+2. Framework Preset: **Vite**.
+3. Build Command: `vite build` (or `npm run build`).
+4. Output Directory: `dist`.
+5. Deploy.
 
 ---
 
-## 👥 Team Error 404
-* **Lead AI Research Engineer & Full-Stack Development:** Team Error 404 (`Adel-333`)
-* **Challenge:** NASA Space Apps Challenge 2026
+## 8. Authors and Challenge Attribution
+- **Team:** Error 404 (`Adel-333`)
+- **Event:** NASA Space Apps Challenge 2026
+- **Challenge:** Be an Earth System Trend Detective!

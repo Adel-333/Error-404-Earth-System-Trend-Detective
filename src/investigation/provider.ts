@@ -156,7 +156,7 @@ export class LiveNasaEarthDataProvider implements InvestigationDataProvider {
     if (powerParam) {
       try {
         const cacheKey = `${lat},${lon},${startYear},${endYear}`;
-        let paramDict = nasaPowerCache.get(cacheKey);
+        let paramDict: Record<string, Record<string, number>> | undefined = nasaPowerCache.get(cacheKey);
 
         if (!paramDict) {
           const paramsToQuery = "T2M,TS,PRECTOTCORR,GWETROOT,RH2M";
@@ -171,15 +171,16 @@ export class LiveNasaEarthDataProvider implements InvestigationDataProvider {
             clearTimeout(timer);
             if (!res.ok) throw new Error(`NASA POWER API HTTP ${res.status}`);
             const json = await res.json();
-            paramDict = json?.properties?.parameter ?? {};
-            nasaPowerCache.set(cacheKey, paramDict);
+            const fetchedDict: Record<string, Record<string, number>> = json?.properties?.parameter ?? {};
+            paramDict = fetchedDict;
+            nasaPowerCache.set(cacheKey, fetchedDict);
           } catch (fetchErr) {
             clearTimeout(timer);
             throw fetchErr;
           }
         }
 
-        const rawSeries = paramDict[powerParam];
+        const rawSeries = paramDict ? paramDict[powerParam] : undefined;
         if (rawSeries && Object.keys(rawSeries).length > 0) {
           const points: MonthlyObservationPoint[] = [];
 
@@ -447,7 +448,6 @@ export class HybridNasaEarthDataProvider implements InvestigationDataProvider {
   readonly id = "hybrid-nasa-provider";
   readonly name = "NASA Earth Science Observation Archive (MERRA-2 / POWER / MODIS)";
   readonly availability = "live-nasa-api" as const;
-  private readonly liveProvider = new LiveNasaEarthDataProvider();
   private readonly fallbackProvider = new ScientificSimulationEarthDataProvider();
 
   getDatasets(context: InvestigationContext): InvestigationDataset[] {

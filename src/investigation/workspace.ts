@@ -15,7 +15,6 @@ import {
   type AnalyzedVariable,
 } from "./analysis";
 import { investigationProvider } from "./provider";
-import { RegionalMap } from "./regionalMap";
 
 function ymToValue(ym: YearMonth): string {
   return `${ym.year}-${String(ym.month).padStart(2, "0")}`;
@@ -40,8 +39,6 @@ const OCEAN_PRESETS: Record<string, { name: string; lat: number; lon: number }> 
 
 export class InvestigationWorkspace {
   private context: InvestigationContext | null;
-  private view: "map" | "globe" = "globe";
-  private map: RegionalMap | undefined;
   private globe: InvestigationGlobe | undefined;
   public inspected: { lat: number; lon: number } | null = null;
   private analysis: InvestigationAnalysisResult | null = null;

@@ -3,7 +3,6 @@ import "@fontsource-variable/geist-mono";
 import "./investigation.css";
 import "./ui/copilot.css";
 import { InvestigationWorkspace } from "./investigation/workspace";
-import { earthDetectiveCopilot } from "./ui/EarthDetectiveCopilot";
 
 const app = document.querySelector<HTMLElement>("#app");
 if (!app) throw new Error("Investigation requires #app");

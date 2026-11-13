@@ -4,6 +4,7 @@ import { earthDetectiveCopilot } from "./ui/EarthDetectiveCopilot";
 
 // Ensure any lingering transition curtain is immediately reset on Explorer load
 resetTransitionCurtain();
+(window as unknown as { earthDetectiveCopilot: unknown }).earthDetectiveCopilot = earthDetectiveCopilot;
 // Geist and Geist Mono, self-hosted (SIL OFL 1.1). One typeface on every
 // platform, where `system-ui` was Segoe on Windows, SF on a Mac and whatever
 // Linux had, so text metrics (and the layouts measured against them) now match
