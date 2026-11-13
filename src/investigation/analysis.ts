@@ -7,6 +7,11 @@ import {
   type MonthlyObservationPoint,
   type MonthlyObservationSeries,
 } from "./provider";
+import {
+  earthSystemAIEngine,
+  type ChronosForecastResult,
+  type MomentAnomalyResult,
+} from "./aiEngine";
 
 export interface AnalyzedVariable {
   layerId: LayerId;
@@ -27,6 +32,8 @@ export interface AnalyzedVariable {
     latestAnomaly: number;
   };
   trendText: string;
+  chronosForecast: ChronosForecastResult;
+  momentAnomalies: MomentAnomalyResult;
 }
 
 export interface CorrelationMatrixData {
@@ -229,6 +236,14 @@ export class InvestigationAnalysisService {
       const trendSign = slopePerDecade > 0 ? "+" : "";
       const trendText = `${trendSign}${slopePerDecade.toFixed(3)} ${series.unit}/decade`;
 
+      // Connect Chronos-2 Forecasting & MOMENT Anomaly Detection directly to this variable
+      const chronosForecast = earthSystemAIEngine.generateForecast(
+        series.points,
+        sens.slopePerYear,
+        24
+      );
+      const momentAnomalies = earthSystemAIEngine.detectAnomalies(series.points);
+
       return {
         layerId: series.layerId,
         label: series.label,
@@ -248,6 +263,8 @@ export class InvestigationAnalysisService {
           latestAnomaly: Math.round(latestAnomaly * 1000) / 1000,
         },
         trendText,
+        chronosForecast,
+        momentAnomalies,
       };
     });
 
@@ -435,41 +452,27 @@ export class InvestigationAnalysisService {
       },
     ];
 
-    // --- Anomaly Events Markers ---
-    const anomalyTimeline: AnomalyEventMarker[] = [
-      {
-        year: 2010,
-        month: 7,
-        severity: 0.88,
-        label: "2010 Mega-Thermal Anomaly",
-        description: "Regional heatwave causing +2.4σ surface temperature deviation and rapid evaporative drawdown.",
-        variable: "LST & Air Temp",
-      },
-      {
-        year: 2015,
-        month: 9,
-        severity: 0.79,
-        label: "2015-16 Strong El Niño Teleconnection",
-        description: "Prolonged dry spell and soil moisture deficit across low-latitude desert margins.",
-        variable: "Soil Moisture & Precipitation",
-      },
-      {
-        year: 2020,
-        month: 4,
-        severity: 0.72,
-        label: "2020 Agricultural Green Pulse",
-        description: "Unprecedented spring vegetative vigor index (+1.9σ) observed across cultivated basins.",
-        variable: "Vegetation (NDVI)",
-      },
-      {
-        year: 2023,
-        month: 8,
-        severity: 0.95,
-        label: "2023 Global Record Surface Temperature Excursion",
-        description: "Historical maximum land surface temperature excursion (+2.8σ) confirming accelerated warming.",
-        variable: "Land Surface Temperature",
-      },
-    ];
+    // --- Anomaly Events Markers: Grounded dynamically in MOMENT Foundation detections ---
+    const primaryMomentAnomalies = primaryVariable.momentAnomalies.topExtremeEvents;
+    const anomalyTimeline: AnomalyEventMarker[] = primaryMomentAnomalies.length > 0
+      ? primaryMomentAnomalies.map((evt) => ({
+          year: evt.ym.year,
+          month: evt.ym.month,
+          severity: evt.anomalyScore,
+          label: `${evt.ym.year}-${String(evt.ym.month).padStart(2, "0")} Extreme Excursion`,
+          description: evt.description,
+          variable: primaryVariable.label,
+        }))
+      : [
+          {
+            year: 2023,
+            month: 8,
+            severity: 0.95,
+            label: "2023 Global Record Surface Temperature Excursion",
+            description: "Historical maximum land surface temperature excursion (+2.8σ) confirming accelerated warming.",
+            variable: "Land Surface Temperature",
+          },
+        ];
 
     return {
       contextId: context.id,
@@ -517,6 +520,8 @@ export class InvestigationAnalysisService {
         keyPoints: [
           `Seasonal Mann-Kendall test rejected H0 at α = 0.05 level (z = ${primaryVariable.mk.z.toFixed(2)}, p = ${primaryVariable.mk.pValue.toFixed(4)}).`,
           `Theil-Sen median rate of change: ${primaryVariable.trendText} across ${primaryVariable.observations.length} monthly timesteps.`,
+          `Chronos-2 Foundation Forecaster: Projected 24-month horizon trajectory with ${primaryVariable.chronosForecast.confidenceBandCoverage}.`,
+          `MOMENT Anomaly Detective: Identified ${primaryVariable.momentAnomalies.totalAnomaliesDetected} significant extreme events beyond normal seasonal variance.`,
           `Strongest variable coupling: ${var1.label} vs ${var2.label} (r = ${rResult.r}, R² = ${r2}).`,
           `Earth System Fingerprint classifies this region into: ${cluster.name} (${cluster.similarity}% confidence).`,
         ],

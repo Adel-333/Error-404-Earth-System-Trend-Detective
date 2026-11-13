@@ -1135,6 +1135,34 @@ export class InvestigationWorkspace {
             `}
         </div>
 
+        <!-- AI Foundation Insights: Chronos-2 & MOMENT -->
+        <div class="deck-card ai-foundation-deck-card" style="border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(8, 20, 36, 0.7);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 class="deck-card-title" style="margin:0; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              AI Foundations Telemetry (Chronos-2 & MOMENT)
+            </h3>
+            <span style="font-size:10px; background:rgba(56,189,248,0.15); color:#38bdf8; padding:2px 6px; border-radius:4px; font-weight:600;">ACTIVE INFERENCE</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:8px;">
+            <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-bottom:4px;">CHRONOS-2 FORECAST</div>
+              <div style="font-size:13px; color:#f8fafc; font-weight:700;">+24 Months Horizon</div>
+              <div style="font-size:11px; color:#38bdf8; margin-top:2px;">Trend: ${currentVar.chronosForecast.driftPerDecade > 0 ? "+" : ""}${currentVar.chronosForecast.driftPerDecade} ${currentVar.unit}/dec</div>
+              <div style="font-size:10px; color:#64748b; margin-top:4px;">${currentVar.chronosForecast.confidenceBandCoverage}</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-bottom:4px;">MOMENT ANOMALY DETECTIVE</div>
+              <div style="font-size:13px; color:#f8fafc; font-weight:700;">${currentVar.momentAnomalies.totalAnomaliesDetected} Extreme Excursions</div>
+              <div style="font-size:11px; color:#fb7185; margin-top:2px;">Reconstruction Threshold: ${currentVar.momentAnomalies.thresholdUsed}σ</div>
+              <div style="font-size:10px; color:#64748b; margin-top:4px;">Unsupervised Extreme Event Detection</div>
+            </div>
+          </div>
+          <div style="font-size:10px; color:#64748b; font-family:monospace; line-height:1.4;">
+            ${currentVar.chronosForecast.disclaimer}
+          </div>
+        </div>
+
         <div class="deck-card">
           <h3 class="deck-card-title">Earth System Provenance & Sensor Spec</h3>
           <ul class="provenance-list">
