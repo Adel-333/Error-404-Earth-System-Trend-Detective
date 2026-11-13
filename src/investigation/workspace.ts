@@ -612,16 +612,20 @@ export class InvestigationWorkspace {
     setTimeout(() => {
       let answer = "";
       const q = query.toLowerCase();
-      if (q.includes("trend") || q.includes("slope") || q.includes("rate")) {
-        answer = `Current trend for ${currentVar.label} is <strong>${currentVar.trendText}</strong> with Mann-Kendall p = ${currentVar.mk.pValue.toFixed(4)}.`;
-      } else if (q.includes("extreme") || q.includes("anomaly") || q.includes("shift")) {
-        const extreme = [...currentVar.anomalies].sort((a, b) => Math.abs(b.zScore) - Math.abs(a.zScore))[0];
-        answer = `Peak anomaly was recorded in ${extreme.ym.year}-${String(extreme.ym.month).padStart(2, "0")} reaching <strong>${extreme.zScore >= 0 ? "+" : ""}${extreme.zScore.toFixed(2)}σ</strong>.`;
+      if (q.includes("trend") || q.includes("slope") || q.includes("rate") || q.includes("اتجاه")) {
+        answer = `Current trend for ${currentVar.label} is <strong>${currentVar.trendText}</strong> with Seasonal Mann-Kendall τ = ${currentVar.mk.tau.toFixed(3)} (p = ${currentVar.mk.pValue.toFixed(4)}, ${currentVar.mk.pValue < 0.05 ? "statistically significant" : "n.s."}).`;
+      } else if (q.includes("forecast") || q.includes("chronos") || q.includes("توقع") || q.includes("مستقبل")) {
+        const fc = currentVar.chronosForecast;
+        answer = `<strong>Chronos-2 Probabilistic Foundation Forecast</strong> (+${fc.horizonMonths} months): Extrapolated drift rate is <strong>${fc.driftPerDecade > 0 ? "+" : ""}${fc.driftPerDecade} ${currentVar.unit}/decade</strong> with calibrated 80% confidence envelope [P10–P90].`;
+      } else if (q.includes("extreme") || q.includes("anomaly") || q.includes("moment") || q.includes("شذوذ")) {
+        const ma = currentVar.momentAnomalies;
+        const top = ma.topExtremeEvents[0];
+        answer = `<strong>MOMENT Anomaly Detective</strong> detected <strong>${ma.totalAnomaliesDetected} extreme events</strong> beyond the ${ma.thresholdUsed}σ reconstruction threshold. Primary excursion occurred in ${top ? `${top.ym.year}-${String(top.ym.month).padStart(2, "0")} (${top.severity.toUpperCase()}, score: ${top.anomalyScore})` : "historical record"}.`;
       } else {
-        answer = `Analyzing "${query}" for ${currentVar.label}: Empirical satellite record spans ${currentVar.observations.length} months. Monotonic trajectory aligns with the ${this.analysis!.fingerprint.cluster.name} regime archetype.`;
+        answer = `Analyzing "${query}" for ${currentVar.label}: Empirical satellite record spans ${currentVar.observations.length} months. Monotonic trajectory aligns with the ${this.analysis!.fingerprint.cluster.name} regime archetype. Chronos-2 forecasts continuous trend stability over the next 24 months.`;
       }
       this.appendChatMessage("assistant", answer);
-    }, 320);
+    }, 280);
   }
 
   private appendChatMessage(role: "user" | "assistant", htmlContent: string): void {

@@ -1,4 +1,6 @@
 import { playCurtainTransition, resetTransitionCurtain } from "./lib/nasaFacts";
+import "./ui/copilot.css";
+import { earthDetectiveCopilot } from "./ui/EarthDetectiveCopilot";
 
 // Ensure any lingering transition curtain is immediately reset on Explorer load
 resetTransitionCurtain();
