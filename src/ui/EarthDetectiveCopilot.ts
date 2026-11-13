@@ -151,11 +151,8 @@ export class EarthDetectiveCopilot {
   private render(): void {
     if (!this.isOpen) {
       this.container.innerHTML = `
-        <button type="button" class="copilot-toggle-btn" id="copilot-toggle-btn" title="Open NASA AI Copilot">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10a9.96 9.96 0 0 1-4.708-1.175L2 22l1.175-5.292A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2z"/>
-            <path d="M8 12h.01M12 12h.01M16 12h.01"/>
-          </svg>
+        <button type="button" class="copilot-toggle-btn" id="copilot-toggle-btn" title="Open Erro 404 AI Copilot">
+          <img src="/erro-logo.jpg" alt="Erro 404" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;" />
           <span class="copilot-btn-glow"></span>
           <span class="copilot-badge-pulse">AI</span>
         </button>
@@ -170,9 +167,9 @@ export class EarthDetectiveCopilot {
         <!-- Header -->
         <div class="copilot-header">
           <div class="copilot-header-title">
-            <div class="copilot-logo-dot"></div>
+            <img src="/erro-logo.jpg" alt="Erro 404" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #38bdf8;" />
             <div>
-              <div class="copilot-title-text">NASA AI Copilot</div>
+              <div class="copilot-title-text">Erro 404 · NASA AI Copilot</div>
               <div class="copilot-sub-text">Chronos-2 & MOMENT Grounded</div>
             </div>
           </div>

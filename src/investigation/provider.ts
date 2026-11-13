@@ -162,11 +162,21 @@ export class LiveNasaEarthDataProvider implements InvestigationDataProvider {
           const paramsToQuery = "T2M,TS,PRECTOTCORR,GWETROOT,RH2M";
           const url = `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=${paramsToQuery}&community=AG&longitude=${lon}&latitude=${lat}&format=JSON&start=${startYear}&end=${endYear}`;
 
-          const res = await fetch(url, { signal });
-          if (!res.ok) throw new Error(`NASA POWER API HTTP ${res.status}`);
-          const json = await res.json();
-          paramDict = json?.properties?.parameter ?? {};
-          nasaPowerCache.set(cacheKey, paramDict);
+          // Fast 2.5s network abort controller so slow responses never hang the UI
+          const timeoutCtrl = new AbortController();
+          const timer = setTimeout(() => timeoutCtrl.abort(), 2500);
+
+          try {
+            const res = await fetch(url, { signal: timeoutCtrl.signal });
+            clearTimeout(timer);
+            if (!res.ok) throw new Error(`NASA POWER API HTTP ${res.status}`);
+            const json = await res.json();
+            paramDict = json?.properties?.parameter ?? {};
+            nasaPowerCache.set(cacheKey, paramDict);
+          } catch (fetchErr) {
+            clearTimeout(timer);
+            throw fetchErr;
+          }
         }
 
         const rawSeries = paramDict[powerParam];
