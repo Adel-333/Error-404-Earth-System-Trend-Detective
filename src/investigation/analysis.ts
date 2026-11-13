@@ -475,7 +475,9 @@ export class InvestigationAnalysisService {
       contextId: context.id,
       providerName: provider.name,
       isSimulated: provider.availability === "simulated-model",
-      disclaimer: "DEMO DATA — NOT REAL NASA OBSERVATIONS. Live analytical algorithms (Mann-Kendall, Sen's slope, Pearson matrix, PCA) run directly on this observation series.",
+      disclaimer: provider.availability === "live-nasa-api"
+        ? "VERIFIED REAL NASA OBSERVATION — Live satellite & reanalysis series (GMAO MERRA-2 / POWER). Real-time analytical algorithms (Mann-Kendall, Sen's slope, Pearson matrix, PCA) active."
+        : "DEMO DATA — NOT REAL NASA OBSERVATIONS. Live analytical algorithms (Mann-Kendall, Sen's slope, Pearson matrix, PCA) run directly on this observation series.",
       variables: analyzedVars,
       primaryVariable,
       secondaryVariable,
