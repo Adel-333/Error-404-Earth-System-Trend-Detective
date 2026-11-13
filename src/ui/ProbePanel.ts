@@ -1,3 +1,4 @@
+import { playCurtainTransition } from "../lib/nasaFacts";
 import {
   anomalySeries,
   csvDecimals,
@@ -9,6 +10,12 @@ import {
   uncertaintyText,
   type ProbeScale,
 } from "../lib/probe";
+import {
+  newInvestigationId,
+  saveInvestigationContext,
+  type InvestigationContext,
+  type InvestigationGeometry,
+} from "../investigation/context";
 import { trendSummary, trendClause, type TrendSummary } from "../lib/trend";
 import { probeAbsenceStatusLine } from "../lib/probeAbsenceStatus";
 import {
@@ -101,6 +108,7 @@ export class ProbePanel {
   // Turns beside the status line while a record streams in (see setStatus).
   private readonly orb = new ThinkingOrb("listening", 20, "probe__orb");
   private readonly detail: HTMLElement;
+  private readonly analyzeBtn: HTMLButtonElement;
   private readonly downloadBtn: HTMLButtonElement;
   private readonly copyBtn: HTMLButtonElement;
   private copyResetTimer: ReturnType<typeof setTimeout> | undefined;
@@ -239,12 +247,19 @@ export class ProbePanel {
     this.copyBtn.disabled = true;
     this.copyBtn.addEventListener("click", () => this.copyCsv());
 
+    this.analyzeBtn = document.createElement("button");
+    this.analyzeBtn.type = "button";
+    this.analyzeBtn.className = "probe__analyze";
+    this.analyzeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Analyze Selection in Trend Detective</span>`;
+    this.analyzeBtn.title = "Launch independent scientific investigation workspace for this location";
+    this.analyzeBtn.addEventListener("click", () => this.launchInvestigation());
+
     const caveat = document.createElement("p");
     caveat.className = "probe__caveat";
     caveat.textContent =
       "Approximate: values reconstructed from imagery colors.";
 
-    footer.append(this.downloadBtn, this.copyBtn, caveat);
+    footer.append(this.analyzeBtn, this.downloadBtn, this.copyBtn, caveat);
 
     this.root.append(
       header,
@@ -1225,7 +1240,7 @@ export class ProbePanel {
     navigator.clipboard
       .writeText(this.csv())
       .then(() => {
-        this.flashCopyLabel("Copied ✓");
+        this.flashCopyLabel("Copied");
         this.announce?.("Probe CSV copied");
       })
       // Clipboard access can be denied (permissions policy, insecure context).
@@ -1243,15 +1258,56 @@ export class ProbePanel {
     }, 1600);
   }
 
+  private launchInvestigation(): void {
+    const layerId = this.context?.layerId ?? "vegetation";
+    const locTitle = this.subtitle.textContent || "Probed Regional Selection";
+
+    let geometry: InvestigationGeometry = {
+      kind: "point",
+      lat: this.context?.latitude ?? 26.82,
+      lon: 30.8,
+    };
+
+    // Parse lat/lon from subtitle if available (e.g. "26.800° N, 30.800° E")
+    const match = /(-?\d+\.?\d*)°\s*([NS]),\s*(-?\d+\.?\d*)°\s*([EW])/i.exec(locTitle);
+    if (match) {
+      let lat = parseFloat(match[1]);
+      if (match[2].toUpperCase() === "S") lat = -lat;
+      let lon = parseFloat(match[3]);
+      if (match[4].toUpperCase() === "W") lon = -lon;
+      geometry = { kind: "point", lat, lon };
+    }
+
+    const id = newInvestigationId();
+    const invContext: InvestigationContext = {
+      id,
+      name: `${locTitle} Investigation`,
+      geometry,
+      layerIds: [layerId, "lst", "soil"].filter(
+        (v, i, a) => a.indexOf(v) === i
+      ) as LayerId[],
+      start: this.months[0] ?? { year: 2000, month: 1 },
+      end: this.months[this.months.length - 1] ?? { year: 2026, month: 10 },
+      temporalResolution: "monthly",
+      createdAt: new Date().toISOString(),
+      explorerUrl: window.location.href,
+    };
+
+    saveInvestigationContext(invContext);
+    playCurtainTransition(() => {
+      window.location.href = `/investigation/${id}`;
+    });
+  }
+
   // --- Chart -----------------------------------------------------------------
 
   private draw(): void {
     const styles = getComputedStyle(this.root);
     const accent = styles.getPropertyValue("--accent").trim() || "#4ea1ff";
-    const fg = styles.getPropertyValue("--fg").trim() || "#e8eef7";
+    const fg = "#0f172a";
 
-    const cssWidth = this.canvas.clientWidth || 340;
-    const cssHeight = this.canvas.clientHeight || 150;
+    const cssWidth = this.canvas.clientWidth || 540;
+    const cssHeight = this.canvas.clientHeight || 175;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = cssWidth * dpr;
     this.canvas.height = cssHeight * dpr;

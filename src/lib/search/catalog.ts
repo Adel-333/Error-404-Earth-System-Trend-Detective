@@ -158,7 +158,7 @@ export function loadPlaceCatalog(
       try {
         return await fetchJson(`${base}data/${file}`);
       } catch (error) {
-        console.warn(`RoamingEye: search index skipped ${file}`, error);
+        console.warn(`Trend Detective: search index skipped ${file}`, error);
         return null;
       }
     };

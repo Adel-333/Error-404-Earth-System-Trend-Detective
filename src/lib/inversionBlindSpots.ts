@@ -118,7 +118,7 @@ export interface BlindSpotOptions {
 export const MIN_BLIND_SPAN_SHARE = 0.05;
 
 const BLIND_SPOT_LIMITS = [
-  "Spans are measured against GIBS's authoritative colormap entries, so they locate where RoamingEye's legend gradient fails — not where the source product is missing or wrong.",
+  "Spans are measured against GIBS's authoritative colormap entries, so they locate where Trend Detective's legend gradient fails — not where the source product is missing or wrong.",
   "Bounds are bin midpoints, so a run's true unreadable width extends up to half a bin beyond each end; the reported span is the conservative inner bound.",
   "A blind span means probe samples in that range return no value and drop out of the series, biasing any statistic derived from the survivors; it is not a statement about the source product's coverage.",
   "Rejection is judged by the same no-data distance threshold the probe uses, which cannot distinguish a colour our gradient omits from genuine no-data fill.",

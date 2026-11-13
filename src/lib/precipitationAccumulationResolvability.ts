@@ -7,7 +7,7 @@ import type { DatasetRef } from "./timeline";
  *
  * `precipitationAccumulationChange` calls a pair of monthly totals wetter,
  * drier, or little-change at a 1 mm reporting threshold. Both totals are
- * integrations of a value RoamingEye never measured directly: it inverted a
+ * integrations of a value Trend Detective never measured directly: it inverted a
  * rendered GIBS pixel colour through an approximate legend gradient, and that
  * inversion has a *measured* end-to-end RMSE for the precipitation layer
  * (METHODS §3, docs/validation.md; the CI-asserted figure lives in

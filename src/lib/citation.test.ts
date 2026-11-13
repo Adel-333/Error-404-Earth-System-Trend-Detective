@@ -73,7 +73,7 @@ describe("doiResolverUrl", () => {
 describe("BibTeX", () => {
   it("emits a well-formed @software entry for the tool with a version", () => {
     const bib = bibtexTool();
-    expect(bib).toMatch(/^@software\{roamingeye,/);
+    expect(bib).toMatch(/^@software\{trend_detective,/);
     expect(bib).toContain(`version = {${TOOL_CITATION.version}}`);
     expect(bib.trimEnd().endsWith("}")).toBe(true);
   });
@@ -143,7 +143,7 @@ describe("plain text", () => {
 describe("CSL-JSON", () => {
   it("emits a 'software' item for the tool with author, year, and version", () => {
     const item = cslTool();
-    expect(item.id).toBe("roamingeye");
+    expect(item.id).toBe("error404_trend_detective");
     expect(item.type).toBe("software");
     expect(item.title).toBe(TOOL_CITATION.title);
     expect(item.author).toEqual([{ literal: TOOL_CITATION.author }]);
@@ -179,7 +179,7 @@ describe("CSL-JSON", () => {
     expect(bundle.endsWith("\n")).toBe(true);
     const items = JSON.parse(bundle) as CslItem[];
     expect(Array.isArray(items)).toBe(true);
-    expect(items[0]).toMatchObject({ id: "roamingeye", type: "software" });
+    expect(items[0]).toMatchObject({ id: "error404_trend_detective", type: "software" });
 
     // One dataset item per unique GIBS DOI — no product double-counted — plus
     // the vector sources typed as data (the plate model is an article).
@@ -332,7 +332,7 @@ describe("vector-source citations", () => {
 describe("citationBundle", () => {
   it("bundles the tool plus every deduplicated dataset in BibTeX", () => {
     const bundle = citationBundle("bibtex");
-    expect(bundle).toContain("@software{roamingeye");
+    expect(bundle).toContain("@software{trend_detective");
     // One @misc per unique dataset DOI, plus one per non-article vector source.
     const uniqueDois = new Set(citedDatasets().map((c) => c.dataset.doi));
     const vectorMisc = citedVectorSources().filter(

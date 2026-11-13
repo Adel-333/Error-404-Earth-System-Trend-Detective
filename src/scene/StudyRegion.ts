@@ -210,7 +210,7 @@ export class StudyRegion {
   }
 
   private textureFailed(date: string, seq: number): void {
-    console.warn(`RoamingEye: high-res imagery failed for ${date}`);
+    console.warn(`Trend Detective: high-res imagery failed for ${date}`);
     if (seq === this.seq) {
       this.callbacks.onLoadingChange?.(false);
       this.callbacks.onStatus?.("High-res imagery failed to load");

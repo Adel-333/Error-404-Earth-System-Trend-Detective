@@ -44,7 +44,7 @@ import {
  */
 
 export const PLACE_OBSERVATION_EXPORT_SCHEMA =
-  "roamingeye-place-observation-export/v13" as const;
+  "error404-place-observation-export/v13" as const;
 
 export const PLACE_OBSERVATION_GEOGRAPHY = {
   coordinateReferenceSystem: "OGC:CRS84",
@@ -242,7 +242,7 @@ export type InversionAccuracyScope =
   | "value-inversion-unrecorded";
 
 /**
- * The measured end-to-end error of RoamingEye's *UI legend gradient*, plus a
+ * The measured end-to-end error of Trend Detective's *UI legend gradient*, plus a
  * statement of whether that is the inversion which produced this product's
  * values.
  *
@@ -702,7 +702,7 @@ export interface PlaceObservationExport {
     sourceImage: { width: number; height: number };
     valueMethod: "approximate-colormap-inversion";
   };
-  generated: { iso: string; tool: "RoamingEye"; version: string };
+  generated: { iso: string; tool: "Trend Detective"; version: string };
   privacy: {
     includesPersonalData: false;
     includesHiddenTelemetry: false;
@@ -736,7 +736,7 @@ export interface PlaceObservationExport {
     "Data-month record states do not make values across products interchangeable or describe environmental condition.",
     "A legend-cap censoring record marks the month it names as a one-sided bound rather than a measurement; where no record is supplied, none was assessed, which is not evidence that no censoring occurred.",
     "An observation's valueBound marks that value as a bound the rendered ramp could not resolve past, never as a measurement; a null bound records that this observation was not assessed for one, which is not evidence its value was resolved.",
-    "A product's inversionAccuracy is the measured end-to-end error of RoamingEye's UI legend gradient inverted against the published GIBS colormap, pooled over the whole ramp and stated in the product's native unit; it is not the source product's validation against in-situ measurement, and a layer recorded as uncharacterized carries an unmeasured inversion error rather than none.",
+    "A product's inversionAccuracy is the measured end-to-end error of Trend Detective's UI legend gradient inverted against the published GIBS colormap, pooled over the whole ramp and stated in the product's native unit; it is not the source product's validation against in-situ measurement, and a layer recorded as uncharacterized carries an unmeasured inversion error rather than none.",
     "That figure does not always describe the inversion a product's values came from: inversionAccuracy.scope reports measures-a-different-inversion where the values were read through GIBS's published colormap rather than the UI legend gradient, and no validation run measures that inversion, so the quoted figure is neither this product's error nor evidence of a larger or smaller one.",
     "Not every product measured what it reports: observationModality.modelDerived marks a value produced by a land-surface model or an atmospheric reanalysis rather than sensed, and such a value is an estimate for the sampled cell rather than a measurement of it; an unclassified product's basis is not asserted, which is not a finding that it was measured.",
     "This export does not cover every imagery product the place panel samples: withheldProducts names those it withholds and why, and a product listed there is absent from products at every place, so its absence is a limit of this file rather than evidence about conditions at this one.",
@@ -1011,7 +1011,7 @@ const LIMITATIONS = [
   "Data-month record states do not make values across products interchangeable or describe environmental condition.",
   "A legend-cap censoring record marks the month it names as a one-sided bound rather than a measurement; where no record is supplied, none was assessed, which is not evidence that no censoring occurred.",
   "An observation's valueBound marks that value as a bound the rendered ramp could not resolve past, never as a measurement; a null bound records that this observation was not assessed for one, which is not evidence its value was resolved.",
-  "A product's inversionAccuracy is the measured end-to-end error of RoamingEye's UI legend gradient inverted against the published GIBS colormap, pooled over the whole ramp and stated in the product's native unit; it is not the source product's validation against in-situ measurement, and a layer recorded as uncharacterized carries an unmeasured inversion error rather than none.",
+  "A product's inversionAccuracy is the measured end-to-end error of Trend Detective's UI legend gradient inverted against the published GIBS colormap, pooled over the whole ramp and stated in the product's native unit; it is not the source product's validation against in-situ measurement, and a layer recorded as uncharacterized carries an unmeasured inversion error rather than none.",
   "That figure does not always describe the inversion a product's values came from: inversionAccuracy.scope reports measures-a-different-inversion where the values were read through GIBS's published colormap rather than the UI legend gradient, and no validation run measures that inversion, so the quoted figure is neither this product's error nor evidence of a larger or smaller one.",
   "Not every product measured what it reports: observationModality.modelDerived marks a value produced by a land-surface model or an atmospheric reanalysis rather than sensed, and such a value is an estimate for the sampled cell rather than a measurement of it; an unclassified product's basis is not asserted, which is not a finding that it was measured.",
   "This export does not cover every imagery product the place panel samples: withheldProducts names those it withholds and why, and a product listed there is absent from products at every place, so its absence is a limit of this file rather than evidence about conditions at this one.",
@@ -1079,7 +1079,7 @@ export function createPlaceObservationExport(
     },
     generated: {
       iso: input.generatedIso,
-      tool: "RoamingEye",
+      tool: "Trend Detective",
       version: input.toolVersion,
     },
     privacy: {
@@ -1329,7 +1329,7 @@ function validateInput(input: PlaceObservationExportInput): void {
     const configuredLayer = LAYERS[product.layerId];
     if (product.wmsLayer !== configuredLayer.wmsLayer) {
       throw new Error(
-        `Product ${product.layerId} WMS layer does not match the configured RoamingEye data product.`
+        `Product ${product.layerId} WMS layer does not match the configured Trend Detective data product.`
       );
     }
     if (
@@ -1337,7 +1337,7 @@ function validateInput(input: PlaceObservationExportInput): void {
       !sameDatasetRef(product.source, configuredLayer.dataset)
     ) {
       throw new Error(
-        `Product ${product.layerId} citation does not match the configured RoamingEye data product.`
+        `Product ${product.layerId} citation does not match the configured Trend Detective data product.`
       );
     }
     if (product.samplingSupport) validateSamplingSupport(product);

@@ -1,5 +1,5 @@
 /**
- * A catalogue of the open Earth-observation data ecosystem RoamingEye is built
+ * A catalogue of the open Earth-observation data ecosystem Trend Detective is built
  * on and draws from. `use` marks how each relates to the project:
  *  - "core": data we stream/use directly.
  *  - "underlying": missions/instruments whose data we show via NASA GIBS.
@@ -66,7 +66,7 @@ export const PROVIDERS: Provider[] = [
     license: "Public domain",
     use: "core",
     description:
-      "Global Imagery Browse Services — the open, CORS-friendly imagery backbone RoamingEye streams (MODIS, HLS, MERRA-2, GLDAS, and hundreds more layers).",
+      "Global Imagery Browse Services — the open, CORS-friendly imagery backbone Trend Detective streams (MODIS, HLS, MERRA-2, GLDAS, and hundreds more layers).",
   },
   {
     name: "NASA Earthdata / EOSDIS DAACs",

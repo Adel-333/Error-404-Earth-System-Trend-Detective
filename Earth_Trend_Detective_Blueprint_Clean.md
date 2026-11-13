@@ -108,7 +108,7 @@ The references below are not all equivalent. Some are direct implementations of 
 | [Arctic Climate Story](https://github.com/lukaskreibig/climate-dashboard) / [live story](https://arctic.rip) | High-quality climate storytelling web app | Frontend polish, narrative data presentation, typed frontend/backend contracts, reproducible data pipeline | Story-first scrolling experience, not a general variable/ROI analysis workbench; README states all-rights-reserved licensing. |
 | [earth — Open Climate Data on a Globe](https://github.com/blauewelt/earth) / [live globe](https://blauewelt.github.io/earth/) | Open-source 3D data explorer prototype | Layer catalogue, globe interaction, date controls, comparison, aggregation, data catalogue | Broad prototype with multiple providers; not a focused statistical trend-detection application. |
 | [Watcher-ux — Earth Trend Detective](https://github.com/Watcher-ux/Earth-Trend-Detective) | Public project for NASA Space Apps GO 2026 | Small Python/Streamlit app with a separate engine, tests, data fetcher, Mann–Kendall, Sen slope, dual-region comparison | Very small repository/history at the time reviewed; license wording is not a standard SPDX license; inspect carefully before reuse. |
-| [RoamingEye](https://github.com/zkWizard/RoamingEye) / [live site](https://roamingeye.org) | Open-source NASA data globe | Excellent time scrubber, layer catalogue, point probes, provenance, research methods and agent guidance | Some point-series extraction is explicitly approximate because it inverts rendered colours; do not use that approximate probe as a substitute for raw numeric data in our scientific engine. |
+| [Trend Detective](https://github.com/Team-Error-404/Earth-System-Trend-Detective) / [live site](https://error404.earth) | Open-source NASA data globe | Excellent time scrubber, layer catalogue, point probes, provenance, research methods and agent guidance | Some point-series extraction is explicitly approximate because it inverts rendered colours; do not use that approximate probe as a substitute for raw numeric data in our scientific engine. |
 | [Tiefer team profile](https://www.spaceappschallenge.org/2026/find-a-team/eigenon/) / [lab repository](https://github.com/tiefer-labs/lab) | Team concept for the same challenge | Cloud-cover trend investigation using MODIS and cloud-image filtering | Team profile describes the intended direction; do not assume a complete, validated challenge implementation without inspecting the repository. |
 | [NASA Worldview](https://worldview.earthdata.nasa.gov/) | Official NASA Earth-observation browser | Layer catalogue, time navigation, map interaction, geographic context | Primarily a visualization/discovery experience; do not extract scientific trend values from rendered pixels. |
 | [Climate Reanalyzer](https://climatereanalyzer.org/) | University of Maine climate visualization platform | Map and time-series workflow, anomaly views, comparison of climate/reanalysis sources | Not a direct substitute for a statistical trend-significance engine; verify dataset provenance and frequency. |
@@ -359,16 +359,16 @@ The project is an interactive CesiumJS globe with a broad public-data catalogue 
 
 **Verdict:** study the layer catalogue, timeline, comparison mechanics, and metadata structure. Keep our first release much narrower.
 
-## 2.10 Reference I — RoamingEye
+## 2.10 Reference I — Trend Detective
 
-**Repository:** [github.com/zkWizard/RoamingEye](https://github.com/zkWizard/RoamingEye)  
-**Live site:** [roamingeye.org](https://roamingeye.org)  
-**Methods:** [METHODS.md](https://github.com/zkWizard/RoamingEye/blob/main/METHODS.md)  
-**Architecture:** [ARCHITECTURE.md](https://github.com/zkWizard/RoamingEye/blob/main/ARCHITECTURE.md)  
-**Data sources:** [DATA_SOURCES.md](https://github.com/zkWizard/RoamingEye/blob/main/DATA_SOURCES.md)  
-**Agent guidance:** [AGENTS.md](https://github.com/zkWizard/RoamingEye/blob/main/AGENTS.md)
+**Repository:** [github.com/Team-Error-404/Earth-System-Trend-Detective](https://github.com/Team-Error-404/Earth-System-Trend-Detective)  
+**Live site:** [error404.earth](https://error404.earth)  
+**Methods:** [METHODS.md](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/METHODS.md)  
+**Architecture:** [ARCHITECTURE.md](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/ARCHITECTURE.md)  
+**Data sources:** [DATA_SOURCES.md](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/DATA_SOURCES.md)  
+**Agent guidance:** [AGENTS.md](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/AGENTS.md)
 
-RoamingEye describes itself as an open-source, provenance-first 3D globe for browsing NASA satellite/reanalysis records over time. Its README lists a ruler-like monthly time scrubber, multiple Earth-science layers, a provider catalogue, point time-series probes, data-source labels, and research recipes. It also documents seasonal Mann–Kendall and Sen-slope methods.
+Trend Detective describes itself as an open-source, provenance-first 3D globe for browsing NASA satellite/reanalysis records over time. Its README lists a ruler-like monthly time scrubber, multiple Earth-science layers, a provider catalogue, point time-series probes, data-source labels, and research recipes. It also documents seasonal Mann–Kendall and Sen-slope methods.
 
 ### What to study
 
@@ -1547,7 +1547,7 @@ research-library/
 │   ├── climate-dashboard/             # all-rights-reserved; study only
 │   ├── earth-globe/                   # MIT according to README; check data licenses
 │   ├── watcher-earth-trend-detective/ # educational-use wording; verify licence
-│   ├── roamingeye/                    # MIT; check dataset-specific licences
+│   ├── trend_detective/                    # MIT; check dataset-specific licences
 │   └── tiefer-lab/                    # team-linked lab repository; inspect status/licence
 ├── screenshots/
 │   ├── nasa-giovanni/
@@ -1582,7 +1582,7 @@ git clone --depth 1 https://github.com/reshmiee/PyClimaExplorer.git
 git clone --depth 1 https://github.com/lukaskreibig/climate-dashboard.git
 git clone --depth 1 https://github.com/blauewelt/earth.git
 git clone --depth 1 https://github.com/Watcher-ux/Earth-Trend-Detective.git
-git clone --depth 1 https://github.com/zkWizard/RoamingEye.git
+git clone --depth 1 https://github.com/Team-Error-404/Earth-System-Trend-Detective.git
 git clone --depth 1 https://github.com/tiefer-labs/lab.git
 git clone --depth 1 https://github.com/NASA-IMPACT/veda-ui.git nasa-veda-ui
 git clone --depth 1 https://github.com/NASA-IMPACT/next-veda-ui.git next-veda-ui
@@ -1636,7 +1636,7 @@ Do not conclude that a method exists from a screenshot or README alone. Locate t
 
 The goal is to learn the design logic and implementation patterns of existing projects—not to copy their screenshots or produce a superficial clone.
 
-For each selected reference (at minimum: NASA Giovanni, NASA Sea Level DAT, Orion Space, the same-challenge NASA Earth Trend Detective, Arctic Climate Story, RoamingEye, and one well-built geospatial UI):
+For each selected reference (at minimum: NASA Giovanni, NASA Sea Level DAT, Orion Space, the same-challenge NASA Earth Trend Detective, Arctic Climate Story, Trend Detective, and one well-built geospatial UI):
 
 1. **Capture the real product:** open the working site/repository; capture desktop (1440×900) and tablet/mobile screenshots where supported. Record the route, state, viewport, and date. Do not treat a GitHub README banner as a full product review.
 2. **Map the user journey:** write the exact steps for variable selection, region selection, time filtering, data loading, chart interaction, analysis, and export.
@@ -1676,7 +1676,7 @@ For each selected reference (at minimum: NASA Giovanni, NASA Sea Level DAT, Orio
 | climate-dashboard / Arctic Climate Story | README states “All rights reserved.” | Do not copy code, assets, CSS, or screenshots without permission. Use as visual inspiration only. |
 | blauewelt/earth | README states MIT; data sources have individual licences/attributions. | Code reuse may be possible under MIT; every dataset and imagery source still needs its own licence/credit review. |
 | Watcher-ux/Earth-Trend-Detective | README says “open source for educational purposes”; no standard licence was established in the reviewed text. | Study only until a clear licence or permission is confirmed. |
-| zkWizard/RoamingEye | MIT licence is exposed in the repository; each data source has its own terms/credits. | Code reuse may be possible under MIT; preserve notices and do not reuse source data outside its terms. |
+| Team-Error-404/Earth-System-Trend-Detective | MIT licence is exposed in the repository; each data source has its own terms/credits. | Code reuse may be possible under MIT; preserve notices and do not reuse source data outside its terms. |
 | tiefer-labs/lab | Not established in this review. | Study only until repository contents and licence are inspected. |
 | NASA Giovanni / NASA Sea Level DAT | Official NASA services/tools; not a general open-source code licence statement for copying application code. | Use as workflow and scientific UX references. Follow NASA service/data terms and acknowledgements. |
 
@@ -2089,11 +2089,11 @@ The links below are a research library, not an instruction to install every repo
 - [Arctic Climate Story — live site](https://arctic.rip)
 - [earth — GitHub](https://github.com/blauewelt/earth)
 - [earth — live globe](https://blauewelt.github.io/earth/)
-- [RoamingEye — GitHub](https://github.com/zkWizard/RoamingEye)
-- [RoamingEye — live site](https://roamingeye.org)
-- [RoamingEye — methods](https://github.com/zkWizard/RoamingEye/blob/main/METHODS.md)
-- [RoamingEye — architecture](https://github.com/zkWizard/RoamingEye/blob/main/ARCHITECTURE.md)
-- [RoamingEye — agent instructions](https://github.com/zkWizard/RoamingEye/blob/main/AGENTS.md)
+- [Trend Detective — GitHub](https://github.com/Team-Error-404/Earth-System-Trend-Detective)
+- [Trend Detective — live site](https://error404.earth)
+- [Trend Detective — methods](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/METHODS.md)
+- [Trend Detective — architecture](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/ARCHITECTURE.md)
+- [Trend Detective — agent instructions](https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/AGENTS.md)
 - [Climate Reanalyzer](https://climatereanalyzer.org/)
 - [NASA VEDA UI — GitHub](https://github.com/NASA-IMPACT/veda-ui) (Apache-2.0; maintenance mode)
 - [NASA VEDA UI — architecture/setup docs](https://github.com/NASA-IMPACT/veda-ui/tree/main/docs)

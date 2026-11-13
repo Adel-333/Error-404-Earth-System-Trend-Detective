@@ -70,7 +70,7 @@ export async function github(path) {
   const response = await fetch(`https://api.github.com${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "RoamingEye-catalog-agent",
+      "User-Agent": "Trend Detective-catalog-agent",
       "X-GitHub-Api-Version": "2022-11-28",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },

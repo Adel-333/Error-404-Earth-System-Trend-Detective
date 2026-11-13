@@ -82,7 +82,7 @@ function citedSource(id: VegetationObservingConstraintLayerId): DatasetRef {
   const source = LAYERS[id].dataset;
   if (!source) {
     throw new Error(
-      "RoamingEye: the vegetation-index layers must retain a cited dataset"
+      "Trend Detective: the vegetation-index layers must retain a cited dataset"
     );
   }
   return source;

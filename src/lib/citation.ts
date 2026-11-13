@@ -37,11 +37,11 @@ export { DOI_RESOLVER, doiResolverUrl } from "./doiLink";
 
 /** Tool metadata, kept in step with CITATION.cff (the human-facing source). */
 export const TOOL_CITATION = {
-  title: "RoamingEye: an open-data 3D Earth for temporal satellite observation",
-  author: "The RoamingEye contributors",
+  title: "Earth System Trend Detective: Multidecadal Earth Observation & Anomaly Detection",
+  author: "Team Error 404 (NASA Space Apps Challenge 2026)",
   version: __APP_VERSION__,
   year: 2026,
-  url: "https://github.com/zkWizard/RoamingEye",
+  url: "https://github.com/Team-Error-404/Earth-System-Trend-Detective",
   license: "MIT",
 } as const;
 
@@ -71,7 +71,7 @@ function bibtexEscape(s: string): string {
 export function bibtexTool(): string {
   const t = TOOL_CITATION;
   return [
-    `@software{roamingeye,`,
+    `@software{error404_trend_detective,`,
     `  title = {${bibtexEscape(t.title)}},`,
     `  author = {${bibtexEscape(t.author)}},`,
     `  version = {${t.version}},`,
@@ -89,7 +89,7 @@ function datasetKey(ref: DatasetRef): string {
 
 /**
  * BibTeX @misc entry for a source dataset, with its DOI and the note recording
- * how RoamingEye actually read it (citedDatasetReadout.ts) — so a copied entry
+ * how Trend Detective actually read it (citedDatasetReadout.ts) — so a copied entry
  * never credits the archived product for numbers recovered from its imagery.
  */
 export function bibtexDataset(ref: DatasetRef): string {
@@ -208,7 +208,7 @@ export interface CslItem {
 export function cslTool(): CslItem {
   const t = TOOL_CITATION;
   return {
-    id: "roamingeye",
+    id: "error404_trend_detective",
     type: "software",
     title: t.title,
     author: [{ literal: t.author }],
@@ -359,7 +359,7 @@ export type CitationFormat = "bibtex" | "ris" | "text" | "csljson";
  * ready to paste into a reference manager.
  *
  * Every entry, imagery and vector alike, carries the note qualifying how
- * RoamingEye actually read that source (citedDatasetReadout.ts), so a citation
+ * Trend Detective actually read that source (citedDatasetReadout.ts), so a citation
  * that leaves the app cannot present a recovered value as the archived
  * product's own.
  *

@@ -3,7 +3,7 @@ import type { LayerId, YearMonth } from "./timeline";
 /**
  * Curated time-lapses: a layer, a place, a stretch of months, and a sentence
  * on what to watch for. They are the first thing a new visitor can do with
- * RoamingEye that shows what it is for, the Earth changing over time, without
+ * Trend Detective that shows what it is for, the Earth changing over time, without
  * first learning the controls.
  *
  * Every story here was chosen by looking at its frames in the app, not from

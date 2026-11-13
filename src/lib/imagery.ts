@@ -87,7 +87,7 @@ export function boundsPartPixelWidths(
     !Number.isInteger(totalWidth) ||
     totalWidth < parts.length
   ) {
-    throw new Error("RoamingEye: image width cannot represent bounds pieces");
+    throw new Error("Trend Detective: image width cannot represent bounds pieces");
   }
 
   const widths: number[] = [];
@@ -128,7 +128,7 @@ export function allocateBoundsPartWidths(
 ): number[] {
   if (!Number.isInteger(totalWidth) || totalWidth < parts.length) {
     throw new Error(
-      "RoamingEye: imagery width must provide at least one pixel per bounds part"
+      "Trend Detective: imagery width must provide at least one pixel per bounds part"
     );
   }
   if (parts.length === 0) return [];

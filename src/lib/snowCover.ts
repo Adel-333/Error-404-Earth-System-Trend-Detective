@@ -25,7 +25,7 @@ export const SNOW_COVER_DATASET: DatasetRef = requireSnowDataset();
 function requireSnowDataset(): DatasetRef {
   const dataset = LAYERS.snow.dataset;
   if (!dataset) {
-    throw new Error("RoamingEye: snow layer must retain a cited dataset");
+    throw new Error("Trend Detective: snow layer must retain a cited dataset");
   }
   return dataset;
 }

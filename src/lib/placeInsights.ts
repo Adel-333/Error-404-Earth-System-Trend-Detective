@@ -132,7 +132,7 @@ export function loadPlaceColormap(
         const entries = parseColormapEntries(xml);
         if (entries.length === 0) {
           throw new Error(
-            `RoamingEye: GIBS colormap for "${calibrated}" has no usable entries`
+            `Trend Detective: GIBS colormap for "${calibrated}" has no usable entries`
           );
         }
         return {

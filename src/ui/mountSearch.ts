@@ -87,7 +87,7 @@ export function mountSearch(
         })
         .catch((error: unknown) => {
           if (token !== previewToken) return;
-          console.warn("RoamingEye: change preview failed", error);
+          console.warn("Trend Detective: change preview failed", error);
         });
     }
   );

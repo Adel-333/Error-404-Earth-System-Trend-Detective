@@ -589,7 +589,7 @@ describe("place observation export", () => {
     const exported = createPlaceObservationExport(input);
 
     expect(exported).toMatchObject({
-      schema: "roamingeye-place-observation-export/v13",
+      schema: "error404-place-observation-export/v13",
       kind: "place-observation-export",
       boundary,
       geography: PLACE_OBSERVATION_GEOGRAPHY,
@@ -671,7 +671,7 @@ describe("place observation export", () => {
       },
       generated: {
         iso: "2026-07-13T06:00:00Z",
-        tool: "RoamingEye",
+        tool: "Trend Detective",
         version: "1.1.0",
       },
       reproducibility: {
@@ -1180,7 +1180,7 @@ describe("place observation export", () => {
         ],
       })
     ).toThrow(
-      "Product ndvi WMS layer does not match the configured RoamingEye data product."
+      "Product ndvi WMS layer does not match the configured Trend Detective data product."
     );
 
     expect(() =>
@@ -1194,7 +1194,7 @@ describe("place observation export", () => {
         ],
       })
     ).toThrow(
-      "Product ndvi citation does not match the configured RoamingEye data product."
+      "Product ndvi citation does not match the configured Trend Detective data product."
     );
   });
 

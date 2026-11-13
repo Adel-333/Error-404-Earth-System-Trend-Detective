@@ -494,7 +494,7 @@ export function overlayKeyFor(id: string): OverlayKeySpec | undefined {
  * The dataset citation the legend must show for a layer, with the layer's
  * interpretation guardrail when it has one.
  *
- * RoamingEye is provenance-first: every rendered dataset stays cited (METHODS.md,
+ * Trend Detective is provenance-first: every rendered dataset stays cited (METHODS.md,
  * and the providers page's "Citing the data" list). The legend honoured that only
  * where a layer happened to carry an `interpretationNote` — the note was what
  * made the source line render at all, so the DOI rode along as a side effect of

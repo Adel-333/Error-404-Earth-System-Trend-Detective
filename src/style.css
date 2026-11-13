@@ -44,6 +44,19 @@
   --tone-green: #5fd38a;
 }
 
+.clima-analyze-button {
+  border: 1px solid rgba(111, 202, 245, 0.58);
+  border-radius: 999px;
+  background: rgba(39, 126, 176, 0.88);
+  color: #fff;
+  cursor: pointer;
+  padding: 7px 11px;
+  font: 600 11px var(--font-sans);
+  white-space: nowrap;
+}
+
+.clima-analyze-button:hover { background: rgba(57, 151, 204, 1); }
+
 :root[data-theme="light"] {
   color-scheme: light;
 
@@ -151,7 +164,7 @@ html,
 body {
   height: 100%;
   overflow: hidden;
-  background: var(--bg);
+  background: #05070d;
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -734,6 +747,7 @@ body {
 
 /* --- Loading state --- */
 .loader {
+  background: #05070d !important;
   position: absolute;
   inset: 0;
   display: flex;
@@ -741,7 +755,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  background: var(--bg);
+  background: #05070d;
   color: var(--muted);
   /* Above every control (4-6), so booting is one clean curtain rather than a
      dimmed header with the search field and toolbar painted over it. Below

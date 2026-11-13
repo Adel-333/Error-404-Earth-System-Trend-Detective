@@ -11,7 +11,7 @@ import { ICONS } from "./icons";
 import { FocusTrap } from "./modal";
 
 const REVIEW_QUEUE_URL =
-  "https://github.com/zkWizard/RoamingEye/blob/main/catalog/review-queue.json";
+  "https://github.com/Team-Error-404/Earth-System-Trend-Detective/blob/main/catalog/review-queue.json";
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -74,7 +74,7 @@ export class FleetDashboard {
         </div>
         <footer class="providers__legend">
           <a href="${REVIEW_QUEUE_URL}" target="_blank" rel="noopener">Open review queue</a>
-          <span class="providers__version">RoamingEye v${__APP_VERSION__}</span>
+          <span class="providers__version">Error 404 Trend Detective v${__APP_VERSION__}</span>
         </footer>
       </div>`;
 

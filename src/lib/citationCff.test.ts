@@ -9,23 +9,23 @@ import { TOOL_CITATION } from "./citation";
 
 /** A minimal, well-formed CFF fixture consistent with the tool metadata below. */
 const TOOL: CitationToolMetadata = {
-  title: "RoamingEye: an open-data 3D Earth",
-  author: "The RoamingEye contributors",
-  url: "https://github.com/zkWizard/RoamingEye",
+  title: "Trend Detective: an open-data 3D Earth",
+  author: "Team Error 404 (NASA Space Apps Challenge 2026)",
+  url: "https://github.com/Team-Error-404/Earth-System-Trend-Detective",
   license: "MIT",
   version: "1.2.3",
 };
 
 const CFF = `cff-version: 1.2.0
 message: >-
-  If you use RoamingEye, please cite it as below.
-title: "RoamingEye: an open-data 3D Earth"
+  If you use Trend Detective, please cite it as below.
+title: "Trend Detective: an open-data 3D Earth"
 type: software
 authors:
-  - name: "The RoamingEye contributors"
-    website: "https://github.com/zkWizard/RoamingEye/graphs/contributors"
-repository-code: "https://github.com/zkWizard/RoamingEye"
-url: "https://github.com/zkWizard/RoamingEye"
+  - name: "Team Error 404 (NASA Space Apps Challenge 2026)"
+    website: "https://github.com/Team-Error-404/Earth-System-Trend-Detective/graphs/contributors"
+repository-code: "https://github.com/Team-Error-404/Earth-System-Trend-Detective"
+url: "https://github.com/Team-Error-404/Earth-System-Trend-Detective"
 license: MIT
 version: 1.2.3
 date-released: "2026-07-10"
@@ -34,9 +34,9 @@ date-released: "2026-07-10"
 describe("parseCitationCff", () => {
   it("reads the five cross-published scalar fields", () => {
     expect(parseCitationCff(CFF)).toEqual({
-      title: "RoamingEye: an open-data 3D Earth",
-      author: "The RoamingEye contributors",
-      url: "https://github.com/zkWizard/RoamingEye",
+      title: "Trend Detective: an open-data 3D Earth",
+      author: "Team Error 404 (NASA Space Apps Challenge 2026)",
+      url: "https://github.com/Team-Error-404/Earth-System-Trend-Detective",
       license: "MIT",
       version: "1.2.3",
     });

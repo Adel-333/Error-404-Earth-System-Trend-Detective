@@ -8,7 +8,7 @@ import type { LayerId } from "./timeline";
 import { MEASURED_INVERSION } from "./validation";
 
 /**
- * How faithfully RoamingEye's vegetation-index legend reproduces NASA GIBS's
+ * How faithfully Trend Detective's vegetation-index legend reproduces NASA GIBS's
  * own MOD13A3 NDVI and EVI ramps — measured, not assumed.
  *
  * The probe reads a vegetation index by inverting a sampled colour through our
@@ -141,7 +141,7 @@ export const MEASURED_VEGETATION_RAMP: Record<
 };
 
 export const VEGETATION_RAMP_LIMITS = [
-  "Figures measure RoamingEye's legend-gradient inversion against GIBS's published MOD13A3 ramp, not the MOD13A3 product against in-situ measurements.",
+  "Figures measure Trend Detective's legend-gradient inversion against GIBS's published MOD13A3 ramp, not the MOD13A3 product against in-situ measurements.",
   "The vegetation indices are excluded from the calibrated colormap-inverted layers because their ramps are non-linear in value, so a linear position-to-value reading is an approximation with a documented signed error.",
   "No bias correction is applied: the residual is not a constant offset, so the error is reported rather than silently absorbed into the value.",
   "NDVI and EVI are unitless reflectance indices; none of these figures support a claim about vegetation cover, biomass, condition, or health.",
@@ -268,7 +268,7 @@ export function vegetationRampTickCaveat(id: LayerId): string | null {
   if (!exceedsLinearityCeiling(id)) return null;
   const percent = Math.round(fidelity.linearityDeviation * 100);
   return (
-    `Mid-scale ${indexLabel(index)} is a position on RoamingEye's gradient, not a colormap-inverted value: ` +
+    `Mid-scale ${indexLabel(index)} is a position on Trend Detective's gradient, not a colormap-inverted value: ` +
     `GIBS's ${VEGETATION_INDEX_COLORMAP_DOCS[index]} ramp is non-linear, departing from this scale by up to ${percent}% of span. ` +
     `The end labels are exact.`
   );
@@ -351,7 +351,7 @@ export function uncalibratedVegetationAccuracyClause(
  * larger error reads as the better characterized one.
  *
  * Written under its own `inversion_validation_gradient` key rather than the
- * `inversion_validation` one: these values are read off RoamingEye's legend
+ * `inversion_validation` one: these values are read off Trend Detective's legend
  * gradient, not inverted through GIBS's colormap, and a script keyed on the
  * exact name of the calibrated figure must not silently pick this up as one. A
  * prefix scan still finds it. The two keys can never both appear — this builder
@@ -389,7 +389,7 @@ export function uncalibratedVegetationAccuracyCsvHeaders(
         } than the ramp)`
       : "";
   return [
-    `# inversion_validation_gradient: RMSE ±${fidelity.rmse.toFixed(2)} on the 0–1 index against GIBS's ${VEGETATION_INDEX_COLORMAP_DOCS[index]} published ramp — these values are read off RoamingEye's legend gradient rather than inverted through that colormap${unreadable}${direction} (docs/validation.md; re-asserted against the live GIBS documents by the vegetation-index ramp contract)`,
+    `# inversion_validation_gradient: RMSE ±${fidelity.rmse.toFixed(2)} on the 0–1 index against GIBS's ${VEGETATION_INDEX_COLORMAP_DOCS[index]} published ramp — these values are read off Trend Detective's legend gradient rather than inverted through that colormap${unreadable}${direction} (docs/validation.md; re-asserted against the live GIBS documents by the vegetation-index ramp contract)`,
     `# inversion_validation_gradient_scope: rendering-inversion error only; not the accuracy of the underlying MOD13A3 product against in-situ measurement. ${indexLabel(index)} is a unitless reflectance index and none of these figures support a claim about vegetation cover biomass condition or health`,
     `# inversion_validation_gradient_transport: measured on the published colormap colours themselves — the JPEG imagery transport the probe samples adds error on top of this figure rather than within it; bounded separately per layer by the probe accuracy suite`,
   ];
@@ -418,7 +418,7 @@ export function describeVegetationRampFidelity(id: LayerId): string | null {
   const source =
     calibratedVegetationIndex(index) !== null
       ? `${indexLabel(index)} values are inverted through GIBS's ${VEGETATION_INDEX_COLORMAP_DOCS[index]} colormap, whose value fractions this legend's stops sit at`
-      : `${indexLabel(index)} values are read off RoamingEye's legend gradient, not GIBS's ${VEGETATION_INDEX_COLORMAP_DOCS[index]} colormap`;
+      : `${indexLabel(index)} values are read off Trend Detective's legend gradient, not GIBS's ${VEGETATION_INDEX_COLORMAP_DOCS[index]} colormap`;
   // A mean error the method cannot resolve is not a direction. Naming one
   // anyway would turn a calibrated layer's residual scatter into a claim that
   // its values lean green — the same overstatement the tick caveat carried.

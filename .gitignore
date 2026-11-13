@@ -22,6 +22,10 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+Error bg.png
+
+# Temporary scripts & local tests
+scripts/*.py
 
 # Reference and archive
 .reference-repos/

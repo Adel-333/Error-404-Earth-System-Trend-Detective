@@ -7,14 +7,14 @@
 // runs with DEPLOY_BASE=/ (see vite.config.ts). Because every deploy
 // force-pushes a fresh gh-pages branch, the CNAME file GitHub Pages needs to
 // keep the custom domain attached must be re-written into dist/ each run —
-// without it, one deploy would silently detach roamingeye.org.
+// without it, one deploy would silently detach error404.earth.
 import { execSync } from "node:child_process";
 import { writeFileSync, rmSync, existsSync } from "node:fs";
 
 const run = (cmd, opts = {}) =>
   execSync(cmd, { stdio: "pipe", encoding: "utf8", ...opts }).trim();
 
-const DOMAIN = "roamingeye.org";
+const DOMAIN = "error404.earth";
 
 const remote = run("git remote get-url origin");
 const sha = run("git rev-parse --short HEAD");

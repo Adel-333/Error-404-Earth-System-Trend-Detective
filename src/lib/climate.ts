@@ -38,7 +38,7 @@ function citedMetric(
 ): ClimateMetric {
   const source = LAYERS[layerId].dataset;
   if (!source) {
-    throw new Error(`RoamingEye: ${layerId} must retain a cited dataset`);
+    throw new Error(`Trend Detective: ${layerId} must retain a cited dataset`);
   }
   return {
     id,

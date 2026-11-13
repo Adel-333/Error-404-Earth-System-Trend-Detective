@@ -301,7 +301,7 @@ describe("probe CSV under a strict RFC 4180 parser", () => {
 
   it("view_url is the documented exception: byte-exact even with commas", () => {
     const url =
-      "https://zkwizard.github.io/RoamingEye/#layer=ndvi&t=2026-05&probe=-3.4653,-62.2159";
+      "https://zkwizard.github.io/Trend Detective/#layer=ndvi&t=2026-05&probe=-3.4653,-62.2159";
     const csv = buildProbeCsv({ ...baseMeta, viewUrl: url }, months, [
       0.5,
       null,

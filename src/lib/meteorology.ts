@@ -115,7 +115,7 @@ export interface RenderedClimateSeries {
   observations: MonthlyClimateObservation[];
 }
 
-/** Map a RoamingEye layer to a climate metric, or null for non-climate layers. */
+/** Map a Trend Detective layer to a climate metric, or null for non-climate layers. */
 export function climateMetricForLayer(
   layerId: LayerId
 ): ClimateMetricId | null {
@@ -139,12 +139,12 @@ export function observationsFromRenderedClimateSample(
   } = input;
   if (months.length !== sampledValues.length) {
     throw new Error(
-      "RoamingEye: rendered climate months and sampled values must have matching lengths"
+      "Trend Detective: rendered climate months and sampled values must have matching lengths"
     );
   }
   if (validFractions && validFractions.length !== months.length) {
     throw new Error(
-      "RoamingEye: rendered climate months and coverage must have matching lengths"
+      "Trend Detective: rendered climate months and coverage must have matching lengths"
     );
   }
   if (
@@ -152,7 +152,7 @@ export function observationsFromRenderedClimateSample(
     sourceImageDimensionsByMonth.length !== months.length
   ) {
     throw new Error(
-      "RoamingEye: rendered climate months and image provenance must have matching lengths"
+      "Trend Detective: rendered climate months and image provenance must have matching lengths"
     );
   }
   assertStrictlyIncreasingMonths(months);
@@ -161,14 +161,14 @@ export function observationsFromRenderedClimateSample(
     nativeToSampledValueFactor <= 0
   ) {
     throw new Error(
-      "RoamingEye: native-to-sampled climate value factor must be positive"
+      "Trend Detective: native-to-sampled climate value factor must be positive"
     );
   }
   const layerId = CLIMATE_LAYER_BY_METRIC[input.metricId];
   const expectedFactor = SCALE_CONVERSIONS[layerId]?.factor ?? 1;
   if (nativeToSampledValueFactor !== expectedFactor) {
     throw new Error(
-      `RoamingEye: ${input.metricId} rendered samples require native-to-sampled factor ${expectedFactor}`
+      `Trend Detective: ${input.metricId} rendered samples require native-to-sampled factor ${expectedFactor}`
     );
   }
 
@@ -216,14 +216,14 @@ function assertStrictlyIncreasingMonths(months: readonly YearMonth[]): void {
       month.month > 12
     ) {
       throw new Error(
-        "RoamingEye: rendered climate series contains an invalid data month"
+        "Trend Detective: rendered climate series contains an invalid data month"
       );
     }
 
     const ordinal = month.year * 12 + month.month - 1;
     if (previousOrdinal !== null && ordinal <= previousOrdinal) {
       throw new Error(
-        "RoamingEye: rendered climate data months must be unique and strictly increasing"
+        "Trend Detective: rendered climate data months must be unique and strictly increasing"
       );
     }
     previousOrdinal = ordinal;

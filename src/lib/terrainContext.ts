@@ -112,7 +112,7 @@ export function terrainTileAvailabilityNotice(
  * mechanism that breaks the ordering itself.
  *
  * GIBS backs this up by omitting the layer: it publishes a colormap document
- * for every ramp RoamingEye inverts (see COLORMAP_DOCS in colormap.ts) and none
+ * for every ramp Trend Detective inverts (see COLORMAP_DOCS in colormap.ts) and none
  * for ASTER_GDEM_Color_Shaded_Relief, because the layer is a rendering rather
  * than a value-to-colour lookup. That is the same reason PROBE_SCALES marks
  * terrain `calibrated: false` and legendTicks prints no numbers for it.

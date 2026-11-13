@@ -10,7 +10,7 @@ import { formatYm, LAYERS, type DatasetRef, type YearMonth } from "./timeline";
 
 const sstSource = LAYERS.sst.dataset;
 if (!sstSource) {
-  throw new Error("RoamingEye: the SST layer must retain a cited dataset");
+  throw new Error("Trend Detective: the SST layer must retain a cited dataset");
 }
 
 export const SEA_SURFACE_TEMPERATURE_COVERAGE_SOURCE = {

@@ -15,7 +15,7 @@ export const MINIMUM_MONTHS_FOR_ANNUAL_EXTREMA = 6;
 
 const source = LAYERS.ndvi.dataset;
 if (!source) {
-  throw new Error("RoamingEye: the NDVI layer must retain a cited dataset");
+  throw new Error("Trend Detective: the NDVI layer must retain a cited dataset");
 }
 
 /** Existing NASA MOD13A3 v061 provenance, retained in every summary. */

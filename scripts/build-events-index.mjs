@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "public/data/events.json");
-const UA = "RoamingEye-build/1.1 (https://github.com/zkWizard/RoamingEye)";
+const UA = "Trend Detective-build/1.1 (https://github.com/Team-Error-404/Earth-System-Trend-Detective)";
 
 /** Category id stored on each event, and the layer the app should open. */
 const LAYER_BY_CATEGORY = {
@@ -493,7 +493,7 @@ async function main() {
       },
       {
         id: "stories",
-        title: "RoamingEye curated stories",
+        title: "Trend Detective curated stories",
         url: "src/lib/stories.ts",
       },
     ],

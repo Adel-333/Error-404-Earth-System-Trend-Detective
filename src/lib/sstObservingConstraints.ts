@@ -52,7 +52,7 @@ export const SST_OBSERVING_CONSTRAINT_LAYER_ID = "sst" as const;
 
 const sstSource = LAYERS[SST_OBSERVING_CONSTRAINT_LAYER_ID].dataset;
 if (!sstSource) {
-  throw new Error("RoamingEye: the SST layer must retain a cited dataset");
+  throw new Error("Trend Detective: the SST layer must retain a cited dataset");
 }
 
 /** The cited product these constraints are asserted for, and only for it. */

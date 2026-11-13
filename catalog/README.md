@@ -1,6 +1,6 @@
-# RoamingEye software catalog
+# Trend Detective software catalog
 
-This directory is the editorial source for RoamingEye's open-source software
+This directory is the editorial source for Trend Detective's open-source software
 finder. Agents may discover and enrich records, but only candidate records with
 `"approval": "approved"` are published to `public/data/software-catalog.json`.
 

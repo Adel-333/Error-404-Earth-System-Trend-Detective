@@ -230,6 +230,20 @@ export class TrendDetectiveBridge {
               this.opts.onToggleOverlay(id, true);
             }
           }
+          // Auto-close modal with smooth transition so user does not need to press close
+          this.toggleCards(false);
+
+          // Fly camera smoothly with cinematic transition to key zone
+          const hotspotsByLayer: Record<string, { lat: number; lon: number; dist: number }> = {
+            ndvi: { lat: -3.46, lon: -62.21, dist: 2.2 }, // Amazon Basin
+            aerosol: { lat: 53.93, lon: -116.57, dist: 2.2 }, // Canadian Boreal
+            snow: { lat: 64.96, lon: -19.02, dist: 2.0 }, // Iceland / Arctic
+            sst: { lat: 28.0, lon: -65.0, dist: 2.4 }, // Atlantic Warm Pool
+            lst: { lat: 24.0, lon: 35.0, dist: 2.2 }, // Red Sea & Desert
+            airtemp: { lat: 26.8, lon: 30.8, dist: 2.3 }, // Egypt & Mediterranean
+          };
+          const target = (card.layer && hotspotsByLayer[card.layer]) || { lat: 26.8, lon: 30.8, dist: 2.3 };
+          this.flyer.flyTo(target.lat, target.lon, target.dist, 1.3);
         },
         onThenNow: (card) => {
           if (this.thenNowHandler) {
@@ -288,11 +302,15 @@ export class TrendDetectiveBridge {
       this.toggleAnalytics(false);
       this.showClassicControls(true);
     } else if (mode === "detective") {
-      // Trend Detective: Scientific bottom dock active (Correlations + Bivariate + Temporal)
+      // Trend Detective: Deep location probe active
       this.toggleLayers(true);
       this.toggleCards(false);
-      this.toggleAnalytics(true);
-      this.showClassicControls(false);
+      this.toggleAnalytics(false);
+      this.showClassicControls(true);
+      const probe = document.querySelector(".probe");
+      if (!probe || !probe.classList.contains("is-open")) {
+        window.dispatchEvent(new CustomEvent("clima:trigger-probe"));
+      }
     }
   }
 

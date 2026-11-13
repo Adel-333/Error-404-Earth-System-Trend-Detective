@@ -96,7 +96,7 @@ export class Legend {
 
     const row = document.createElement("div");
     row.className = "legend__row";
-    row.append(this.measures, scale);
+    row.append(scale);
 
     this.classes = document.createElement("div");
     this.classes.className = "legend__classes";
@@ -104,12 +104,15 @@ export class Legend {
     this.keys = document.createElement("div");
     this.keys.className = "legend__keys";
 
+    const detailsPopover = document.createElement("div");
+    detailsPopover.className = "legend__details-popover";
+    detailsPopover.append(this.measures, this.caption, this.sourceNote);
+
     container.append(
       row,
       this.classes,
       this.keys,
-      this.caption,
-      this.sourceNote
+      detailsPopover
     );
     this.scaleRow = scale;
     this.setLayer(initial);
@@ -199,9 +202,23 @@ export class Legend {
     // uncalibrated layers); the bar's accessible name carries them too.
     const ticks = legendTicks(id);
     this.values.hidden = ticks === null;
-    this.valueTicks.min!.textContent = ticks?.min ?? "";
-    this.valueTicks.mid!.textContent = ticks?.mid ?? "";
-    this.valueTicks.max!.textContent = ticks?.max ?? "";
+    if (ticks) {
+      this.valueTicks.min!.textContent = ticks.min;
+      // User request: remove duplicate unit on scale bar ("mm/day متكررة مرتين شيل التانية")
+      const parts = ticks.min.trim().split(" ");
+      const unit = parts.length > 1 ? parts.slice(1).join(" ") : null;
+      if (unit) {
+        this.valueTicks.mid!.textContent = ticks.mid.replace(unit, "").trim();
+        this.valueTicks.max!.textContent = ticks.max.replace(unit, "").trim();
+      } else {
+        this.valueTicks.mid!.textContent = ticks.mid;
+        this.valueTicks.max!.textContent = ticks.max;
+      }
+    } else {
+      this.valueTicks.min!.textContent = "";
+      this.valueTicks.mid!.textContent = "";
+      this.valueTicks.max!.textContent = "";
+    }
 
     // The vegetation indices are read off our gradient, not GIBS's ramp, and
     // that ramp is non-linear — so the interior tick is an approximation while

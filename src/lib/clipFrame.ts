@@ -164,7 +164,7 @@ const stamp = (ym: { year: number; month: number }): string =>
   `${ym.year}-${String(ym.month).padStart(2, "0")}`;
 
 /**
- * `roamingeye_<story or layer>_<from>_<to>_v<version>.<ext>`: the same shape
+ * `error404_<story or layer>_<from>_<to>_v<version>.<ext>`: the same shape
  * as the PNG export's name, so a clip in a slide deck stays traceable to what
  * rendered it.
  */
@@ -175,5 +175,5 @@ export function clipFilename(
   version: string,
   ext: "mp4" | "webm"
 ): string {
-  return `roamingeye_${subject}_${stamp(from)}_${stamp(to)}_v${version}.${ext}`;
+  return `error404_${subject}_${stamp(from)}_${stamp(to)}_v${version}.${ext}`;
 }

@@ -13,7 +13,7 @@ import type { DatasetRef } from "./timeline";
  * confident-looking statement bound to a broken citation.
  *
  * This module makes the invariant testable at the synthesis layer. It inspects
- * the four DatasetRef fields RoamingEye cites on — shortName, version, doi, and
+ * the four DatasetRef fields Trend Detective cites on — shortName, version, doi, and
  * title — for presence and non-blankness, and checks the DOI is *shaped* like a
  * registered DOI (`10.<registrant>/<suffix>`) so a copied citation resolves
  * rather than 404s. It is a metadata-integrity check only: it does NOT
@@ -21,7 +21,7 @@ import type { DatasetRef } from "./timeline";
  * job), and it makes no claim about the scientific values a brief reports.
  */
 
-/** The DatasetRef fields a RoamingEye citation must carry to be usable. */
+/** The DatasetRef fields a Trend Detective citation must carry to be usable. */
 export type CitationField = "shortName" | "version" | "doi" | "title";
 
 export type CitationIssueCode = "missing" | "blank" | "malformed-doi";

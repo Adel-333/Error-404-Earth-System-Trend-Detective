@@ -59,7 +59,7 @@ const NDVI_DATASET = LAYERS.ndvi.dataset;
 const EVI_DATASET = LAYERS.evi.dataset;
 if (!NDVI_DATASET || !EVI_DATASET) {
   throw new Error(
-    "RoamingEye: the vegetation-index layers must retain a cited dataset"
+    "Trend Detective: the vegetation-index layers must retain a cited dataset"
   );
 }
 

@@ -5,7 +5,7 @@ import { HIRES_LAYER } from "./imagery";
 /**
  * What quantity does a GIBS layer actually render?
  *
- * RoamingEye cites its sources by dataset DOI. That is the right unit for a
+ * Trend Detective cites its sources by dataset DOI. That is the right unit for a
  * *citation* but not for an *identity*: one dataset supplies many variables.
  * GLDAS_NOAH025_M (10.5067/SXAVCZFAQLNO) backs both the precipitation and the
  * soil-moisture layer, and MOD13A3 (10.5067/MODIS/MOD13A3.061) backs both NDVI
@@ -252,7 +252,7 @@ export function identityStatement(wmsLayer: string, gibsTitle: string): string {
 }
 
 /**
- * GIBS's advertised `<ows:Title>` for every layer RoamingEye renders, read from
+ * GIBS's advertised `<ows:Title>` for every layer Trend Detective renders, read from
  * the live WMTS capabilities on 2026-08-11 and pinned here. The weekly contract
  * test re-reads them, so if NASA re-points an identifier at a different
  * quantity — the failure mode that produced the soil-moisture mislabel — CI

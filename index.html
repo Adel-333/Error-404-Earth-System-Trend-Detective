@@ -23,7 +23,7 @@
       property="og:image"
       content="/error404-logo.jpg"
     />
-    <meta property="og:url" content="https://roamingeye.org/" />
+    <meta property="og:url" content="https://error404.earth/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Error 404 · Earth System Trend Detective" />
     <meta
@@ -84,23 +84,36 @@
 
       <!-- Compact Header -->
       <header class="clima-header">
-        <div class="clima-brand-wrap">
-          <img src="/error404-logo.jpg" alt="Error 404" class="clima-logo-img" />
-          <span class="clima-brand-title">Trend Detective</span>
+        <div class="clima-header-left">
+          <div class="clima-brand-wrap">
+            <img src="/error404-logo.jpg" alt="Error 404" class="clima-logo-img" />
+            <span class="clima-brand-title">Trend Detective</span>
+          </div>
+          <button type="button" class="clima-pill-toggle is-active" id="toggle-panel-layers" title="Toggle Datasets & Layers">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <span>Datasets</span>
+          </button>
         </div>
 
         <div class="clima-header-center">
-          <div class="clima-segmented" id="workspace-mode-selector">
-            <button type="button" class="clima-seg-btn is-active" data-view-mode="explorer" id="mode-explorer" title="NASA Earth imagery"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M12 2a14.5 14.5 0 0 1 0 20M2 12h20"/></svg><span>Explorer</span></button>
-            <button type="button" class="clima-seg-btn" data-view-mode="detective" id="mode-detective" title="Trend analysis"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Detective</span></button>
-          </div>
-          <div class="clima-header-sep"></div>
-          <button type="button" class="clima-pill-toggle is-active" id="toggle-panel-layers" title="Toggle Layers"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg><span>Layers</span></button>
-          <button type="button" class="clima-pill-toggle" id="toggle-panel-analytics" title="Toggle Analytics"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Analytics</span></button>
+          <div id="search" class="search"></div>
         </div>
 
         <div class="clima-header-right">
-          <div id="search" class="search"></div>
+          <button type="button" class="clima-analyze-button" id="analyze-selection" title="Open a separate investigation workspace">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <span>Analyze selection</span>
+          </button>
+          <div class="clima-segmented" id="workspace-mode-selector">
+            <button type="button" class="clima-seg-btn is-active" data-view-mode="explorer" id="mode-explorer" title="NASA Earth imagery">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M12 2a14.5 14.5 0 0 1 0 20M2 12h20"/></svg>
+              <span>Explorer</span>
+            </button>
+            <button type="button" class="clima-seg-btn" data-view-mode="detective" id="mode-detective" title="Trend analysis">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span>Detective</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -335,19 +348,40 @@
       <div id="shortcuts-page" class="shortcuts" aria-hidden="true"></div>
 
       <div id="loader" class="loader">
-        <!-- The orb (ThinkingOrb.ts) mounts here once main.ts runs. The box
-             holds its place from the first paint so the caption never moves. -->
         <div id="loader-orb" class="loader__orb" aria-hidden="true"></div>
-        <p>Loading Earth…</p>
-        <!-- Stays rendered and empty; main.ts inserts the line. A live region
-             that is toggled `hidden` is outside the accessibility tree until
-             it is shown, so the text arrives unannounced (same lesson as the
-             offline banner). Out of flow, so an ordinary boot's spinner and
-             caption sit exactly where they always did. -->
         <div id="loader-slow" class="loader__slow" role="status"></div>
       </div>
     </div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/entry.ts"></script>
+  
+    <!-- Pure Visual Futuristic Orbital Warp Transition (No Text) -->
+    <div id="investigation-transition-curtain" class="investigation-transition-curtain" aria-hidden="true">
+      <div class="curtain-warp-bg">
+        <div class="curtain-warp-grid"></div>
+        <div class="curtain-warp-stars"></div>
+        <div class="curtain-energy-burst"></div>
+      </div>
+      <div class="curtain-content">
+        <div class="curtain-portal-core">
+          <div class="curtain-shockwave ring-shock-1"></div>
+          <div class="curtain-shockwave ring-shock-2"></div>
+          <div class="curtain-warp-ring ring-outer"></div>
+          <div class="curtain-warp-ring ring-mid"></div>
+          <div class="curtain-warp-ring ring-inner"></div>
+          <div class="curtain-radar-sweep radar-cw"></div>
+          <div class="curtain-radar-sweep radar-ccw"></div>
+          <div class="curtain-logo-wrap">
+            <div class="curtain-logo-halo"></div>
+            <img src="/erro-logo.jpg" alt="Erro 404" class="curtain-logo-img" />
+          </div>
+        </div>
+
+        <div class="curtain-bar-wrap">
+          <div class="curtain-progress-laser"></div>
+        </div>
+      </div>
+    </div>
+
   </body>
 </html>

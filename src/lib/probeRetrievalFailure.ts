@@ -143,6 +143,6 @@ export function assertLeadingMonthRetrieved(
   // leading month to have failed, and the caller's own emptiness rules apply.
   if (!transportFailureByMonth[transportFailureByMonth.length - 1]) return;
   throw new Error(
-    `RoamingEye: ${layerId} place sampling could not retrieve the leading month's imagery`
+    `Trend Detective: ${layerId} place sampling could not retrieve the leading month's imagery`
   );
 }

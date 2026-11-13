@@ -83,7 +83,7 @@ describe("datasetReadout", () => {
     expect(notes).toHaveLength(10);
     for (const note of notes) {
       expect(note.length).toBeGreaterThan(0);
-      expect(note).toContain("RoamingEye");
+      expect(note).toContain("Trend Detective");
     }
   });
 

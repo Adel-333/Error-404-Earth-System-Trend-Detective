@@ -1,5 +1,5 @@
 /**
- * The NASA archive that *publishes* each dataset RoamingEye cites.
+ * The NASA archive that *publishes* each dataset Trend Detective cites.
  *
  * Every dataset citation this app emits — BibTeX, RIS, CSL-JSON, and the
  * formatted-text form — named "NASA Global Imagery Browse Services (GIBS)" as

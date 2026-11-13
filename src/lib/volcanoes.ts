@@ -222,9 +222,9 @@ export function summitElevationHoverLabel(
  * elevation, and the tectonic setting come directly from the bundled GVP
  * snapshot; missing values stay explicit instead of being mistaken for zero or
  * silently disappearing. The tectonic setting is GVP's catalog assignment for
- * the site, not an inference RoamingEye drew from the marker's position — and
+ * the site, not an inference Trend Detective drew from the marker's position — and
  * it now says so on the marker, rather than only here. The other items in this
- * line are RoamingEye's own readings of the record, so the setting was the one
+ * line are Trend Detective's own readings of the record, so the setting was the one
  * retained catalog judgement with nothing to distinguish it from them.
  */
 export function volcanoHoverLabel(volcano: Volcano): string {

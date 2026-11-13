@@ -4,7 +4,7 @@
  * invitation without loading them (StoryCard.ts and its data are fetched only
  * once a story is asked for).
  */
-const WELCOME_KEY = "roamingeye:stories-welcome";
+const WELCOME_KEY = "error404:stories-welcome";
 
 export function storiesWelcomed(): boolean {
   try {

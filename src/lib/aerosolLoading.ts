@@ -51,7 +51,7 @@ function requireRenderedRampMax(): number {
   const scale = PROBE_SCALES.aerosol;
   if (!scale.calibrated || !Number.isFinite(scale.max) || scale.max <= 0) {
     throw new Error(
-      "RoamingEye: aerosol layer must retain a calibrated rendered ramp maximum"
+      "Trend Detective: aerosol layer must retain a calibrated rendered ramp maximum"
     );
   }
   return scale.max;
@@ -75,7 +75,7 @@ export const AEROSOL_SOURCE: DatasetRef = requireAerosolSource();
 function requireAerosolSource(): DatasetRef {
   const source = LAYERS.aerosol.dataset;
   if (!source) {
-    throw new Error("RoamingEye: aerosol layer must retain a cited dataset");
+    throw new Error("Trend Detective: aerosol layer must retain a cited dataset");
   }
   return source;
 }
@@ -183,7 +183,7 @@ export interface AerosolLoadingDescriptor {
  * `censored-high` means the reading sits in the colormap's open-ended top bin
  * (AOD ≥ `AEROSOL_RENDERED_RAMP_MAX`): the true column loading is at least that
  * much and may be far more. This is a *representability* limit of the imagery
- * RoamingEye reads, never a claim that the value is a record or extreme.
+ * Trend Detective reads, never a claim that the value is a record or extreme.
  */
 export type AerosolCensoringStatus = "uncensored" | "censored-high";
 

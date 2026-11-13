@@ -16,7 +16,7 @@ import type { YearMonth } from "./timeline";
  */
 
 const MEMORY = new Map<string, MonthClimate[]>();
-const STORAGE_KEY = "roamingeye.era5.v1";
+const STORAGE_KEY = "trend_detective.era5.v1";
 
 function cacheKey(lat: number, lon: number): string {
   return `${lat.toFixed(2)},${lon.toFixed(2)}`;

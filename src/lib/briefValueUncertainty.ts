@@ -14,7 +14,7 @@ import { MEASURED_INVERSION } from "./validation";
  *
  * The brief renders each signal's absolute value — e.g. "Soil moisture: 24.5
  * kg/m² observed for 2026-05" — as a confident-looking point number. But for the
- * raster layers RoamingEye reads by inverting a sampled colour through the
+ * raster layers Trend Detective reads by inverting a sampled colour through the
  * legend gradient, that absolute value carries a measured end-to-end
  * uncertainty: feeding GIBS's authoritative colormap through the production
  * inversion recovers each layer only to within its published RMSE, and how
@@ -175,7 +175,7 @@ export interface BriefValueUncertaintyOptions {
 
 const VALUE_UNCERTAINTY_LIMITS = [
   "Uncertainty is the pipeline's end-to-end colormap-inversion RMSE measured against GIBS's authoritative colormap (METHODS §3, docs/validation.md), not the source product's own validation against in-situ measurements.",
-  "The band qualifies an absolute value read via RoamingEye's raster colormap inversion; these absolute values carry large uncertainty on several layers — prefer relative and temporal analysis (trends, anomalies, seasonality).",
+  "The band qualifies an absolute value read via Trend Detective's raster colormap inversion; these absolute values carry large uncertainty on several layers — prefer relative and temporal analysis (trends, anomalies, seasonality).",
   "No relative-percentage error is reported: relative error is scale-dependent and misleading on offset scales such as Kelvin, so only the absolute band in native units is asserted.",
   "Layers with no usable measured figure are reported as uncharacterized with an explicit reason, and an uncertainty is never invented for them. Two of those reasons still describe a colormap-inverted value: the value is read by inverting a sampled colour through the legend gradient exactly like the bounded layers, so its inversion error is unmeasured rather than absent — such a layer is not exempt by virtue of being a derived index.",
   "An unbounded signal is never evidence of a *smaller* uncertainty than a bounded one. Land surface temperature, for instance, was measured and recovered 0 of 250 colormap steps, so its absolute values rest on an inversion the validation run could not reproduce at all.",

@@ -1,10 +1,10 @@
 import { LAYERS, LAYER_ORDER, type DatasetRef, type LayerId } from "./timeline";
 
 /**
- * How RoamingEye actually reads each cited source dataset — the qualification
+ * How Trend Detective actually reads each cited source dataset — the qualification
  * its citation must carry into a manuscript.
  *
- * RoamingEye never touches an archived NASA product. It renders GIBS browse
+ * Trend Detective never touches an archived NASA product. It renders GIBS browse
  * imagery and recovers everything it reports from the colours of that image, at
  * a measured end-to-end error the probe panel, the probe CSV and the place
  * export all disclose (`MEASURED_INVERSION`, validation.ts). The citation
@@ -25,7 +25,7 @@ import { LAYERS, LAYER_ORDER, type DatasetRef, type LayerId } from "./timeline";
  * the surfaces that know which layer is being read.
  */
 
-/** The way RoamingEye recovers information from a cited dataset's imagery. */
+/** The way Trend Detective recovers information from a cited dataset's imagery. */
 export type DatasetReadout =
   /** A continuous colour ramp inverted to physical units. */
   | "ramp-inverted"
@@ -91,7 +91,7 @@ function layersCitedUnder(ref: DatasetRef): LayerId[] {
 }
 
 /**
- * How RoamingEye reads a cited dataset. A DatasetRef no rendered layer claims —
+ * How Trend Detective reads a cited dataset. A DatasetRef no rendered layer claims —
  * the high-resolution HLS basemap — is `imagery-only`: it is drawn on the globe
  * and never sampled for a value.
  */
@@ -105,33 +105,33 @@ export function datasetReadout(ref: DatasetRef): DatasetReadout {
 
 /**
  * The qualifying note for each readout. Each says the same two things a
- * reader needs: that RoamingEye only ever saw GIBS's rendered imagery of the
+ * reader needs: that Trend Detective only ever saw GIBS's rendered imagery of the
  * product, and what — if anything — it therefore reports. None claims an error
  * magnitude, and none tells the reader not to cite the product: the DOI is the
- * right citation for the imagery's source, just not for RoamingEye's numbers.
+ * right citation for the imagery's source, just not for Trend Detective's numbers.
  */
 const READOUT_NOTES: Record<DatasetReadout, string> = {
   "ramp-inverted":
-    "RoamingEye reads this product only through GIBS's rendered browse imagery: " +
+    "Trend Detective reads this product only through GIBS's rendered browse imagery: " +
     "values it reports are recovered by inverting the displayed colour ramp, not " +
     "read from the archived product, and carry that inversion's error. Cite this " +
     "DOI as the source of the imagery rather than of those values.",
   "relative-ramp":
-    "RoamingEye reads this product only through GIBS's rendered browse imagery, " +
+    "Trend Detective reads this product only through GIBS's rendered browse imagery, " +
     "on a relative colour scale with no physical units, so it reports no " +
     "calibrated value from it. Cite this DOI as the source of the imagery.",
   classes:
-    "RoamingEye reads this product only through GIBS's rendered browse imagery, " +
+    "Trend Detective reads this product only through GIBS's rendered browse imagery, " +
     "as discrete class colours rather than a measurement. Cite this DOI as the " +
     "source of the imagery rather than of a value.",
   "imagery-only":
-    "RoamingEye renders this product as imagery only and reports no values from it. " +
+    "Trend Detective renders this product as imagery only and reports no values from it. " +
     "Cite this DOI as the source of the imagery.",
 };
 
 /**
  * The note a cited dataset's citation entry carries in every export format, so
- * the indirection between the archived product and RoamingEye's readout is not
+ * the indirection between the archived product and Trend Detective's readout is not
  * lost between the app and the manuscript.
  */
 export function datasetReadoutNote(ref: DatasetRef): string {

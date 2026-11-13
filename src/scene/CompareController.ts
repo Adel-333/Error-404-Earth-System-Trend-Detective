@@ -66,7 +66,7 @@ export class CompareController {
       },
       undefined,
       () => {
-        console.warn("RoamingEye: compare imagery failed to load");
+        console.warn("Trend Detective: compare imagery failed to load");
         if (seq === this.seq) {
           this._active = false;
           this.onReadyChange?.(false);

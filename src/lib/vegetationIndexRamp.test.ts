@@ -289,7 +289,7 @@ describe("vegetation-index ramp fidelity", () => {
     expect(joined).toContain("MODIS_L3_EVI");
     // The download must make the same distinction the panel does: this is a
     // gradient reading, not a colormap inversion.
-    expect(headers[0]).toContain("read off RoamingEye's legend gradient");
+    expect(headers[0]).toContain("read off Trend Detective's legend gradient");
     expect(headers[0]).toContain("38 of 132");
     expect(headers[0]).toContain("+0.22");
     expect(headers[0]).toContain("docs/validation.md");

@@ -15,7 +15,7 @@ import type { DatasetRef } from "./timeline";
  *
  * The aerosol descriptors bin column AOD into loading tiers and call a
  * month-over-month difference increasing or decreasing at a 0.02 threshold.
- * Both decisions are made on a value RoamingEye did not measure directly: it
+ * Both decisions are made on a value Trend Detective did not measure directly: it
  * inverted a rendered GIBS pixel colour through an approximate legend gradient,
  * and that inversion has a *measured* end-to-end RMSE for this layer (METHODS
  * §3, docs/validation.md; the CI-asserted figure lives in `MEASURED_INVERSION`

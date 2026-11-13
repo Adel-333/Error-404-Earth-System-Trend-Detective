@@ -27,7 +27,7 @@ import { LAYERS, type DatasetRef, type LayerId } from "./timeline";
 const vegetationLayer = LAYERS.ndvi;
 if (!vegetationLayer.dataset) {
   throw new Error(
-    "RoamingEye: the vegetation-index layer must retain a cited dataset"
+    "Trend Detective: the vegetation-index layer must retain a cited dataset"
   );
 }
 

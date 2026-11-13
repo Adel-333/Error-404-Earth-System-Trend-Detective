@@ -113,7 +113,7 @@ export function climateSeriesExtremes(
 ): ClimateSeriesExtremesSummary {
   if (summaries.length === 0) {
     throw new Error(
-      "RoamingEye: climate series extremes need at least one summary to cite"
+      "Trend Detective: climate series extremes need at least one summary to cite"
     );
   }
   const metric = summaries[0].metric;
@@ -121,7 +121,7 @@ export function climateSeriesExtremes(
     summaries.some((summary) => !sameMetricProvenance(summary.metric, metric))
   ) {
     throw new Error(
-      "RoamingEye: climate series extremes require consistent metric provenance"
+      "Trend Detective: climate series extremes require consistent metric provenance"
     );
   }
 

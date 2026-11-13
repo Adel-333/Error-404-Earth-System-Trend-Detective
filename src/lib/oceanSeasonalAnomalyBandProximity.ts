@@ -171,7 +171,7 @@ function bandDefinitionFor(
   );
   if (!definition) {
     // The band union and the table are kept in step; this guards against drift.
-    throw new Error(`RoamingEye: no anomaly band definition for "${band}"`);
+    throw new Error(`Trend Detective: no anomaly band definition for "${band}"`);
   }
   return definition;
 }

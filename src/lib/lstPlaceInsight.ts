@@ -73,7 +73,7 @@ function requireLandSurfaceTemperatureSource(): DatasetRef {
   const source = LAYERS.lst.dataset;
   if (!source) {
     throw new Error(
-      "RoamingEye: land-surface-temperature layer must retain a cited dataset"
+      "Trend Detective: land-surface-temperature layer must retain a cited dataset"
     );
   }
   return source;

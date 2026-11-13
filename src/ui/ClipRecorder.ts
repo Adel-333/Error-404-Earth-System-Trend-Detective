@@ -329,7 +329,7 @@ function paintFrame(
   ctx.textAlign = "right";
   ctx.fillStyle = theme.fg;
   ctx.font = `600 ${l.credit.size}px ${sans}`;
-  ctx.fillText("roamingeye.org", l.credit.x, l.credit.y);
+  ctx.fillText("error404.earth", l.credit.x, l.credit.y);
   ctx.fillStyle = theme.muted;
   ctx.font = `400 ${l.cite.size}px ${mono}`;
   ctx.textAlign = l.cite.align;

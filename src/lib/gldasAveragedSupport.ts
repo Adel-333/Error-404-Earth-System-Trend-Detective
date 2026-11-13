@@ -10,7 +10,7 @@ import type { LayerId } from "./timeline";
  * What share of an averaged footprint a charted GLDAS water-cycle mean actually
  * covered — and why the rest of it cannot be read as dry.
  *
- * Precipitation and soil moisture are the two fields RoamingEye renders from one
+ * Precipitation and soil moisture are the two fields Trend Detective renders from one
  * GLDAS_NOAH025_M v2.1 run, and they are the only averaged layers whose series
  * surface stated no share at all. Sea-surface temperature, the vegetation
  * indices and snow cover each say what their mean covered

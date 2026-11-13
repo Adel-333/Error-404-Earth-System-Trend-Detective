@@ -165,7 +165,7 @@ export async function openThenNow(
       );
       return;
     }
-    console.warn("RoamingEye: comparison geocode failed", err);
+    console.warn("Trend Detective: comparison geocode failed", err);
     host.announce("Search unavailable — check connection");
     return;
   }
@@ -254,7 +254,7 @@ export async function openPlaceCompare(
       host.announce(text);
       return;
     }
-    console.warn("RoamingEye: comparison geocode failed", err);
+    console.warn("Trend Detective: comparison geocode failed", err);
     showStatus(
       view,
       `${pick.placeA} vs ${pick.placeB}`,
@@ -322,7 +322,7 @@ export async function openPlaceCompare(
     host.announce(card.note ? `${card.note} ${card.sentence}` : card.sentence);
   } catch (err) {
     if (!still(token) || abort.signal.aborted) return;
-    console.warn("RoamingEye: place comparison failed", err);
+    console.warn("Trend Detective: place comparison failed", err);
     const text = "Couldn't read that comparison just now.";
     showStatus(view, `${placeA.name} vs ${placeB.name}`, text);
     host.announce(text);

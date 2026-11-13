@@ -77,7 +77,7 @@ export const LST_OBSERVING_CONSTRAINT_GIBS_LAYER =
 const lstSource = LAYERS[LST_OBSERVING_CONSTRAINT_LAYER_ID].dataset;
 if (!lstSource) {
   throw new Error(
-    "RoamingEye: the land-surface-temperature layer must retain a cited dataset"
+    "Trend Detective: the land-surface-temperature layer must retain a cited dataset"
   );
 }
 

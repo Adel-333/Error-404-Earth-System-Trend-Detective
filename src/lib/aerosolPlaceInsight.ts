@@ -344,7 +344,7 @@ function comparisonText(
  * The card names one descriptive tier for the month's column AOD. That tier is
  * decided by comparing the value against the break points in
  * `AEROSOL_LOADING_BANDS` — but the value being binned was never measured
- * directly. RoamingEye inverts a rendered GIBS pixel colour through an
+ * directly. Trend Detective inverts a rendered GIBS pixel colour through an
  * approximate legend gradient, and that step has a measured end-to-end RMSE for
  * this layer (METHODS §3, docs/validation.md, CI-asserted in
  * `MEASURED_INVERSION`). At the currently measured figure that error is *wider
@@ -397,7 +397,7 @@ function tierInversionClause(value: number, saturated: boolean): string {
  * once it clears `AEROSOL_LOADING_CHANGE_THRESHOLD` (0.02), and calls anything
  * under that `little-change`. That threshold is a descriptive reading
  * convention chosen against the *tier* break points; it was never a statement
- * about how well this pipeline can measure a difference at all. RoamingEye does
+ * about how well this pipeline can measure a difference at all. Trend Detective does
  * not read AOD from MERRA-2 directly — it inverts a rendered GIBS pixel colour
  * through an approximate legend gradient, and that step has a measured
  * end-to-end RMSE for this layer (METHODS §3, docs/validation.md, CI-asserted in

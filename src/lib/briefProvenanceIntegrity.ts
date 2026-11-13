@@ -13,7 +13,7 @@ import {
 /**
  * Provenance-integrity gate for a composed environment brief.
  *
- * RoamingEye already carries a rich set of independent provenance descriptors —
+ * Trend Detective already carries a rich set of independent provenance descriptors —
  * citation completeness, temporal alignment, co-observation, currency, value
  * uncertainty, and more — but each answers one narrow question and none states,
  * in a single go/no-go, whether a composed brief satisfies the structural

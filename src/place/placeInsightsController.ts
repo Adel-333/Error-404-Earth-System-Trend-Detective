@@ -194,7 +194,7 @@ export async function previewPlaceChange(
     return describeChangePreview(metric, range.from, fromValue, toValue);
   } catch (error) {
     if (isAbortError(error) || signal.aborted) return null;
-    console.warn("RoamingEye: change preview failed", error);
+    console.warn("Trend Detective: change preview failed", error);
     return null;
   } finally {
     signal.removeEventListener("abort", stop);
@@ -247,7 +247,7 @@ function showRange(s: PlaceSession, range: YearRange): void {
       rows.push({ metric, years, change });
     } catch (error) {
       if (isAbortError(error) || !current()) return;
-      console.warn(`RoamingEye: place ${layerId} sampling failed`, error);
+      console.warn(`Trend Detective: place ${layerId} sampling failed`, error);
       panel.setCardEmpty(layerId, years, "Unavailable");
     }
   });
@@ -373,7 +373,7 @@ function loadQuakes(
     },
     (error: unknown) => {
       if (!isAbortError(error) && current()) {
-        console.warn("RoamingEye: place earthquake count failed", error);
+        console.warn("Trend Detective: place earthquake count failed", error);
         panel.setQuakes("error");
       }
       return null;
@@ -400,7 +400,7 @@ function loadVolcanoes(s: PlaceSession): void {
     (error: unknown) => {
       volcanoData = undefined;
       if (session !== s) return;
-      console.warn("RoamingEye: place volcano count failed", error);
+      console.warn("Trend Detective: place volcano count failed", error);
       panel.setVolcanoes("error");
     }
   );
@@ -429,7 +429,7 @@ function loadPlates(s: PlaceSession): void {
     (error: unknown) => {
       plateData = undefined;
       if (session !== s) return;
-      console.warn("RoamingEye: place plate distance failed", error);
+      console.warn("Trend Detective: place plate distance failed", error);
       panel.setPlates("error");
     }
   );
@@ -446,7 +446,7 @@ function buildCsv(
   quakes: QuakeTally | null
 ): string {
   const header = [
-    "# RoamingEye place change — APPROXIMATE values from NASA GIBS imagery",
+    "# Trend Detective place change — APPROXIMATE values from NASA GIBS imagery",
     `# place: ${place.displayName.replace(/[\r\n,"]/g, " ")}`,
     `# range: ${range.from}-${range.to}`,
     "# method: annual mean of monthly values sampled inside the boundary; first year vs last year",

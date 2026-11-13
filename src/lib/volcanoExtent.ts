@@ -83,7 +83,7 @@ const LIMITATIONS = [
   "Uses the search result bounding box, not the exact selected boundary.",
   "Includes only volcano records supplied by the bundled GVP-derived file.",
   "Does not forecast eruptions, rank hazards, score risk, or infer causes.",
-  "Region, subregion, and tectonic setting are retained GVP catalog labels, not classifications inferred by RoamingEye.",
+  "Region, subregion, and tectonic setting are retained GVP catalog labels, not classifications inferred by Trend Detective.",
 ] as const;
 
 export function gvpVolcanoUrl(volcanoNumber: number | null): string | null {
@@ -148,7 +148,7 @@ export function volcanoCoordinateLabel(
  * political geography: 1181 of the 1196 bundled records carry a value naming
  * an arc, rift, ridge, or volcanic province ("Nankai Volcanic Arc", "Afar Rift
  * Volcanic Province"), and the rest name a GVP volcano group. Rendered bare it
- * therefore reads as RoamingEye asserting arc or rift membership — the exact
+ * therefore reads as Trend Detective asserting arc or rift membership — the exact
  * inference plateBoundaryContext's limitations refuse to make ("does not infer
  * tectonic setting") and this module's own limitations disclaim.
  *

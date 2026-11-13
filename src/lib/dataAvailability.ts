@@ -7,7 +7,7 @@ import { citedDatasets, GIBS_ACKNOWLEDGMENT } from "./providers";
 import type { DatasetRef } from "./timeline";
 
 /**
- * Journal-ready Data Availability Statement (DAS) for the datasets RoamingEye
+ * Journal-ready Data Availability Statement (DAS) for the datasets Trend Detective
  * renders.
  *
  * `citation.ts` exports reference-manager citations (BibTeX / RIS) and a
@@ -16,7 +16,7 @@ import type { DatasetRef } from "./timeline";
  * journals now *require* in their own right (see e.g. the FAIR principles and
  * publisher data-availability policies): a short prose paragraph stating where
  * the underlying data can be obtained and under what terms, so the work is
- * reproducible without chasing the reference list. RoamingEye had every input a
+ * reproducible without chasing the reference list. Trend Detective had every input a
  * DAS needs — resolvable dataset DOIs, the GIBS/EOSDIS access path, and the
  * requested acknowledgment — but never composed them into the statement itself.
  *

@@ -122,7 +122,7 @@ export function loadHotspots(
     })
     .then(hotspotsFromJson)
     .catch((error: unknown) => {
-      console.warn("RoamingEye: change hotspots skipped", error);
+      console.warn("Trend Detective: change hotspots skipped", error);
       return [];
     });
   return hotspotPromise;

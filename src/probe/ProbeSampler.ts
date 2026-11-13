@@ -274,7 +274,7 @@ export class ProbeSampler {
     canvas.width = pixels.length;
     canvas.height = 1;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) throw new Error("RoamingEye: 2d canvas context unavailable");
+    if (!ctx) throw new Error("Trend Detective: 2d canvas context unavailable");
 
     const blob = await fetchBlob(
       gibsWmsUrl(layer, ym, { ...this.imageSize, format: "image/png" }),
@@ -453,9 +453,9 @@ export class ProbeSampler {
   } {
     const bounds = geometryBounds(geometry);
     if (!bounds)
-      throw new Error("RoamingEye: place has no sampleable boundary");
+      throw new Error("Trend Detective: place has no sampleable boundary");
     const plan = geometrySamplingPlan(geometry, regionGridSize(bounds));
-    if (!plan) throw new Error("RoamingEye: place has no sampleable boundary");
+    if (!plan) throw new Error("Trend Detective: place has no sampleable boundary");
     if (plan.points.length > 0) {
       const pixels = this.dedupedPixels(plan.points, bounds);
       return {
@@ -481,7 +481,7 @@ export class ProbeSampler {
     );
     if (!pointPlan)
       throw new Error(
-        "RoamingEye: place boundary has no interior cells at bounded sampling resolution"
+        "Trend Detective: place boundary has no interior cells at bounded sampling resolution"
       );
     const pixels = this.dedupedPixels(pointPlan.points, bounds);
     return {
@@ -505,7 +505,7 @@ export class ProbeSampler {
     const spec = LEGENDS[layer.id as LayerId];
     if (spec.kind === "classes") {
       throw new Error(
-        `RoamingEye: layer "${layer.id}" is categorical - nothing to sample`
+        `Trend Detective: layer "${layer.id}" is categorical - nothing to sample`
       );
     }
     const lut = buildColormapLut(spec.stops);
@@ -545,7 +545,7 @@ export class ProbeSampler {
     canvas.width = pixels.length;
     canvas.height = 1;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) throw new Error("RoamingEye: 2d canvas context unavailable");
+    if (!ctx) throw new Error("Trend Detective: 2d canvas context unavailable");
 
     let done = 0;
     let next = 0;
@@ -761,7 +761,7 @@ export class ProbeSampler {
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       for (const image of bitmaps) image.close();
-      throw new Error("RoamingEye: 2d canvas context unavailable");
+      throw new Error("Trend Detective: 2d canvas context unavailable");
     }
     let x = 0;
     for (let i = 0; i < bitmaps.length; i++) {

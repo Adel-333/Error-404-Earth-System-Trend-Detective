@@ -815,7 +815,7 @@ describe("buildProbeCsv", () => {
       },
     };
     const csv = buildProbeCsv(boundaryMeta, [{ year: 2001, month: 1 }], [0.5]);
-    expect(csv).toContain("# RoamingEye boundary probe");
+    expect(csv).toContain("# Trend Detective boundary probe");
     expect(csv).toContain(
       "# boundary: Texas; United States (OpenStreetMap contributors via Nominatim; ODbL)"
     );
@@ -846,14 +846,14 @@ describe("buildProbeCsv", () => {
         ...meta,
         toolVersion: "1.0.0",
         viewUrl:
-          "https://zkwizard.github.io/RoamingEye/#layer=ndvi&t=2026-05&probe=-3.4653,-62.2159",
+          "https://zkwizard.github.io/Trend Detective/#layer=ndvi&t=2026-05&probe=-3.4653,-62.2159",
       },
       [{ year: 2001, month: 1 }],
       [0.5]
     );
     expect(stamped).toContain("# tool_version: 1.0.0");
     expect(stamped).toContain(
-      "# view_url: https://zkwizard.github.io/RoamingEye/#layer=ndvi&t=2026-05&probe=-3.4653,-62.2159"
+      "# view_url: https://zkwizard.github.io/Trend Detective/#layer=ndvi&t=2026-05&probe=-3.4653,-62.2159"
     );
     // The stamped link must actually reproduce the view it claims to.
     const hash = stamped.match(/# view_url: [^#\n]*#(.*)/)?.[1] ?? "";
@@ -904,7 +904,7 @@ describe("buildProbeCsv", () => {
             mode === "area"
               ? { south: -4, north: -3, west: -63, east: -62 }
               : undefined,
-          viewUrl: `https://roamingeye.org/#${encodeViewState({
+          viewUrl: `https://error404.earth/#${encodeViewState({
             layer: "ndvi",
             probe: { kind: "point", lat: meta.lat, lon: meta.lon, mode },
           })}`,
@@ -912,7 +912,7 @@ describe("buildProbeCsv", () => {
         [{ year: 2001, month: 1 }],
         [0.5]
       );
-      expect(csvText).toContain(`# RoamingEye ${mode} probe`);
+      expect(csvText).toContain(`# Trend Detective ${mode} probe`);
       const hash = csvText.match(/# view_url: [^#\n]*#(.*)/)?.[1] ?? "";
       const restored = decodeViewState(hash);
       expect(restored.probe).toMatchObject({ kind: "point", mode });
@@ -929,7 +929,7 @@ describe("buildProbeCsv", () => {
         ...meta,
         mode: "region" as const,
         sampledBounds: bounds,
-        viewUrl: `https://roamingeye.org/#${encodeViewState({
+        viewUrl: `https://error404.earth/#${encodeViewState({
           layer: "ndvi",
           probe: { kind: "region", bounds },
         })}`,
@@ -937,7 +937,7 @@ describe("buildProbeCsv", () => {
       [{ year: 2001, month: 1 }],
       [0.5]
     );
-    expect(regionCsv).toContain("# RoamingEye region probe");
+    expect(regionCsv).toContain("# Trend Detective region probe");
     expect(regionCsv).toContain(
       "# region: -4.500 -63.250 -3.000 -62.000 (S W N E)"
     );

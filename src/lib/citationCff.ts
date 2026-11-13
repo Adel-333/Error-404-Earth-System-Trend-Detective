@@ -1,7 +1,7 @@
 import { TOOL_CITATION } from "./citation";
 
 /**
- * Drift guard between the two places RoamingEye states how to cite the tool.
+ * Drift guard between the two places Trend Detective states how to cite the tool.
  *
  * The project publishes the same tool metadata twice, for two audiences:
  *   - CITATION.cff — the human/GitHub-facing citation file, hand-edited; and
@@ -37,7 +37,7 @@ export interface CitationToolMetadata {
 }
 
 /**
- * The subset of CITATION.cff scalar fields RoamingEye also states in
+ * The subset of CITATION.cff scalar fields Trend Detective also states in
  * TOOL_CITATION. `author` is the first entry of the CFF `authors:` list (the
  * tool cites a single collective author). Null means the field was absent.
  */
@@ -119,7 +119,7 @@ function firstAuthorName(text: string): string | null {
 }
 
 /**
- * Parse the RoamingEye-relevant scalar fields out of CITATION.cff text. This is
+ * Parse the Trend Detective-relevant scalar fields out of CITATION.cff text. This is
  * a deliberately narrow reader for the five fields the tool also states in
  * TOOL_CITATION — not a general Citation File Format parser.
  */

@@ -232,7 +232,7 @@ export class SearchBox {
       this.watchTypedOverSuggestions(generation);
     } catch (err) {
       if (generation !== this.generation) return;
-      console.warn("RoamingEye: suggestions failed", err);
+      console.warn("Trend Detective: suggestions failed", err);
       const typed = this.input.value.trim();
       if (typed.length >= 2) void this.run(typed);
       else this.closeResults();
@@ -268,7 +268,7 @@ export class SearchBox {
     } catch (err) {
       if (generation !== this.generation) return;
       clearTimeout(this.pendingTimer);
-      console.warn("RoamingEye: search failed", err);
+      console.warn("Trend Detective: search failed", err);
       this.renderMessage("Search unavailable — check connection");
     }
   }
@@ -290,7 +290,7 @@ export class SearchBox {
       if (generation !== this.generation) return;
       clearTimeout(this.pendingTimer);
       if (err instanceof DOMException && err.name === "AbortError") return;
-      console.warn("RoamingEye: search failed", err);
+      console.warn("Trend Detective: search failed", err);
       this.renderMessage("Search unavailable — check connection");
     }
   }

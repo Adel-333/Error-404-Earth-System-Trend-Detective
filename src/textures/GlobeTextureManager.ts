@@ -272,7 +272,7 @@ export class GlobeTextureManager {
         if (isAbortError(err)) return;
         // External/network failure is recoverable — warn, don't error, so it
         // doesn't trip the e2e "no console errors" smoke test.
-        console.warn(`RoamingEye: failed to load imagery for ${key}`);
+        console.warn(`Trend Detective: failed to load imagery for ${key}`);
         if (key === this.currentKey) {
           // Forget the failed key so a retry of the same month reloads
           // instead of hitting the top-of-show() dedupe.

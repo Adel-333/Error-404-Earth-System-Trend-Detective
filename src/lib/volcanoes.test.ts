@@ -268,7 +268,7 @@ describe("volcanoHoverLabel", () => {
   });
 
   it("names the GVP tectonic setting recorded for the site, and credits GVP", () => {
-    // Every other item on this line is RoamingEye's own reading of the record,
+    // Every other item on this line is Trend Detective's own reading of the record,
     // so the retained catalog judgement says whose it is rather than reading as
     // a setting the app derived from where the marker sits.
     expect(

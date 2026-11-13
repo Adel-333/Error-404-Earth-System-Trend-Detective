@@ -5,7 +5,7 @@
  * Smithsonian GVP publishes one string per volcano — for example
  * "Subduction zone / Continental crust (> 25 km)" — pairing a plate-tectonic
  * setting with a crustal-thickness class. Both halves are catalog assignments
- * GVP made for the volcano's location. Neither is measured by RoamingEye, and
+ * GVP made for the volcano's location. Neither is measured by Trend Detective, and
  * the kilometre figures are the printed bounds of the class GVP assigned, not
  * a crustal thickness measured beneath the summit. Adjacent classes share
  * their printed edge (GVP prints "< 15 km", "15-25 km", "> 25 km"), so the
@@ -190,7 +190,7 @@ export function tectonicSettingLabel(parsed: VolcanoTectonicSetting): string {
  * The bare phrase — "subduction zone, continental crust" — carries nothing
  * saying whose assignment it is. On the place panel that field is already
  * rendered as "GVP tectonic setting: …"; on the globe tooltip it is the last
- * item of a `·`-joined line whose other items genuinely are RoamingEye's
+ * item of a `·`-joined line whose other items genuinely are Trend Detective's
  * readings of the record (a decoded type qualifier, a signed elevation read as
  * a depth, a derived eruption year), so an unattributed setting there reads as
  * a classification this app drew from the marker's position. That is precisely

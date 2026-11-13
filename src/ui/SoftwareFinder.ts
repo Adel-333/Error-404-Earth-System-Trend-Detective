@@ -67,7 +67,7 @@ export class SoftwareFinder {
         </div>
         <footer class="providers__legend">
           <span>Every result links to its evidence.</span>
-          <span class="providers__version">RoamingEye v${__APP_VERSION__}</span>
+          <span class="providers__version">Error 404 Trend Detective v${__APP_VERSION__}</span>
         </footer>
       </div>`;
 

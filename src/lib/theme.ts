@@ -9,7 +9,7 @@
 export type Theme = "light" | "dark";
 
 /** localStorage key holding the user's explicit choice, if any. */
-export const THEME_STORAGE_KEY = "roamingeye:theme";
+export const THEME_STORAGE_KEY = "trend_detective:theme";
 
 /** Narrow an unknown value (e.g. a localStorage string) to a Theme. */
 export function isTheme(value: unknown): value is Theme {

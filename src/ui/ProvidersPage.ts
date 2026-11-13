@@ -21,7 +21,7 @@ const USE_LABEL: Record<ProviderUse, string> = {
 
 /**
  * A full-screen "page" (modal overlay) cataloguing the open Earth-observation
- * data ecosystem RoamingEye is built on. Content comes from `src/lib/providers`.
+ * data ecosystem Trend Detective is built on. Content comes from `src/lib/providers`.
  */
 export class ProvidersPage {
   private readonly container: HTMLElement;
@@ -39,7 +39,7 @@ export class ProvidersPage {
         <header class="providers__header">
           <div>
             <h2 class="providers__title">Open data providers</h2>
-            <p class="providers__intro">RoamingEye is built entirely on open
+            <p class="providers__intro">Earth System Trend Detective by Team Error 404 is built entirely on open
               Earth-observation data. These are the ${PROVIDERS.length} agencies,
               archives, platforms, and projects whose work makes a free, global
               eye on the planet possible.</p>
@@ -51,7 +51,7 @@ export class ProvidersPage {
           <span><i class="providers__dot providers__dot--core"></i> ${USE_LABEL.core}</span>
           <span><i class="providers__dot providers__dot--underlying"></i> ${USE_LABEL.underlying}</span>
           <span><i class="providers__dot providers__dot--ecosystem"></i> ${USE_LABEL.ecosystem}</span>
-          <span class="providers__version">RoamingEye v${__APP_VERSION__}</span>
+          <span class="providers__version">Error 404 Trend Detective v${__APP_VERSION__}</span>
         </footer>
       </div>`;
 
@@ -69,7 +69,7 @@ export class ProvidersPage {
     const citingIntro = document.createElement("p");
     citingIntro.className = "providers__desc";
     citingIntro.textContent =
-      "Publishing work made with RoamingEye? Cite every source dataset you " +
+      "Publishing work made with Earth System Trend Detective? Cite every source dataset you " +
       "used — the imagery products and the volcano, earthquake, " +
       "plate-boundary and basemap sources alike (a DOI resolves to its own " +
       "citation; the two sources without one say what to add) — and " +

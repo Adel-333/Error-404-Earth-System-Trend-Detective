@@ -72,7 +72,7 @@ function persist(status) {
   writeJson(paths.publicHistory, nextHistory);
 }
 
-console.log("RoamingEye catalog fleet: starting review-gated run");
+console.log("Trend Detective catalog fleet: starting review-gated run");
 const agents = [];
 let failure;
 for (const agent of AGENTS) {
@@ -111,4 +111,4 @@ const status = {
 persist(status);
 await formatCatalog();
 if (failure) throw failure;
-console.log("RoamingEye catalog fleet: complete");
+console.log("Trend Detective catalog fleet: complete");

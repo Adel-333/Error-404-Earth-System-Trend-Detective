@@ -8,7 +8,7 @@ import type { SearchAction } from "./search/provider";
  * hash always outranks the stored session.
  */
 
-export const SESSION_STORAGE_KEY = "roamingeye:session";
+export const SESSION_STORAGE_KEY = "error404:session";
 
 export interface SessionState {
   layer?: LayerId;

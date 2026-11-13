@@ -221,12 +221,12 @@ export function parseClassificationPalette(xml: string): ClassificationPalette {
     const legendEntry = labels.get(ref);
     if (!legendEntry) {
       throw new Error(
-        `RoamingEye: classification colormap entry ref="${ref}" has no legend row`
+        `Trend Detective: classification colormap entry ref="${ref}" has no legend row`
       );
     }
     if (legendEntry.rgb !== `${+rgb[1]},${+rgb[2]},${+rgb[3]}`) {
       throw new Error(
-        `RoamingEye: classification colormap entry ref="${ref}" and its legend row disagree on colour`
+        `Trend Detective: classification colormap entry ref="${ref}" and its legend row disagree on colour`
       );
     }
 
@@ -235,7 +235,7 @@ export function parseClassificationPalette(xml: string): ClassificationPalette {
       .map((value) => Number(value.trim()));
     if (sourceValues.some((value) => !Number.isInteger(value))) {
       throw new Error(
-        `RoamingEye: classification colormap entry ref="${ref}" has a non-integer source value`
+        `Trend Detective: classification colormap entry ref="${ref}" has a non-integer source value`
       );
     }
 

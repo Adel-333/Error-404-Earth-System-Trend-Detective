@@ -183,7 +183,7 @@ describe("distinctPlateBoundaries", () => {
 
 /**
  * Guards the redundancy actually present in the bundled file. These are
- * source-digitization artifacts, not a RoamingEye bug: if a regeneration ever
+ * source-digitization artifacts, not a Trend Detective bug: if a regeneration ever
  * removes or adds one, the counts below should be re-measured deliberately
  * rather than drift unnoticed into the length inventory.
  */

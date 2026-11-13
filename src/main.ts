@@ -1,3 +1,7 @@
+import { playCurtainTransition, resetTransitionCurtain } from "./lib/nasaFacts";
+
+// Ensure any lingering transition curtain is immediately reset on Explorer load
+resetTransitionCurtain();
 // Geist and Geist Mono, self-hosted (SIL OFL 1.1). One typeface on every
 // platform, where `system-ui` was Segoe on Windows, SF on a Mac and whatever
 // Linux had, so text metrics (and the layouts measured against them) now match
@@ -6,6 +10,11 @@ import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import * as THREE from "three";
 import { TrendDetectiveBridge } from "./ui/TrendDetectiveBridge";
+import {
+  newInvestigationId,
+  saveInvestigationContext,
+  type InvestigationGeometry,
+} from "./investigation/context";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   LAYERS,
@@ -181,7 +190,7 @@ import {
 import type { EarthEvent } from "./lib/events";
 
 /**
- * RoamingEye
+ * Trend Detective
  * A grab-to-rotate 3D Earth whose surface is driven by a temporal scrubber:
  * scrub month-by-month through NASA's monthly seasonal composites (vegetation,
  * snow) to watch the planet's seasons shift across years.
@@ -202,7 +211,7 @@ const EARTH_RADIUS = 1;
 
 const canvas = document.querySelector<HTMLCanvasElement>("#globe");
 if (!canvas) {
-  throw new Error("RoamingEye: #globe canvas element not found");
+  throw new Error("Trend Detective: #globe canvas element not found");
 }
 const loaderEl = document.querySelector<HTMLElement>("#loader");
 const loaderSlowEl = document.querySelector<HTMLElement>("#loader-slow");
@@ -254,7 +263,7 @@ function webglUnavailable(err: unknown): never {
     loaderEl.classList.remove("is-hidden");
     loaderEl.innerHTML = `
       <div class="loader__fallback">
-        <h2>RoamingEye needs WebGL</h2>
+        <h2>Earth System Trend Detective needs WebGL</h2>
         <p>Your browser blocked or doesn't support WebGL, which draws the 3D
         globe. Try enabling hardware acceleration in your browser settings,
         updating your graphics drivers, or a current version of Chrome,
@@ -362,7 +371,7 @@ void import("./scene/TerrainGlobe")
     }
   })
   .catch((err: unknown) => {
-    console.warn("RoamingEye: terrain globe failed to load", err);
+    console.warn("Trend Detective: terrain globe failed to load", err);
   });
 
 // --- Map overlays (toolbar-toggleable) --------------------------------------
@@ -438,11 +447,11 @@ if (tooltipEl) {
       loadAdmin1Index()
         .then((admin1) => hover.setAdmin1Index(admin1))
         .catch((err) =>
-          console.warn("RoamingEye: admin-1 index failed to load", err)
+          console.warn("Trend Detective: admin-1 index failed to load", err)
         );
     })
     .catch((err) =>
-      console.warn("RoamingEye: country index failed to load", err)
+      console.warn("Trend Detective: country index failed to load", err)
     );
 }
 
@@ -856,7 +865,7 @@ if (exportEl) {
           // to the software that rendered it, months later. `showing` (not
           // `active`) is the right gate here — it is the pinned texture landing
           // that puts a second month into the pixels being read back.
-          a.download = `roamingeye_${currentLayer}_${exportMonthStamp(ym, compare.showing ? compare.pinned : undefined)}_v${__APP_VERSION__}.png`;
+          a.download = `error404_${currentLayer}_${exportMonthStamp(ym, compare.showing ? compare.pinned : undefined)}_v${__APP_VERSION__}.png`;
           a.click();
           URL.revokeObjectURL(a.href);
         }, "image/png");
@@ -926,7 +935,7 @@ async function toggleOverlay(
     try {
       await overlay.ensureLoaded();
     } catch (err) {
-      console.warn(`RoamingEye: overlay "${overlay.id}" failed to load`, err);
+      console.warn(`Trend Detective: overlay "${overlay.id}" failed to load`, err);
       // Say so. The toggle is about to snap itself back off, and until now
       // that was the only evidence the user got: a button that flicked on and
       // returned, with the reason left in a console nobody in the field has
@@ -1295,6 +1304,54 @@ let probeShare: ProbeShare | undefined;
 let sharedPlace: SharedPlace | undefined = initialView.place;
 let sharedQuery: string | undefined = initialView.query;
 let placeGeneration = 0;
+
+function openInvestigation(): void {
+  const cameraPoint = vector3ToLatLng(camera.position);
+  const geometry: InvestigationGeometry = probeShare?.kind === "region"
+    ? {
+        kind: "bounds",
+        north: probeShare.bounds.north,
+        south: probeShare.bounds.south,
+        east: probeShare.bounds.east,
+        west: probeShare.bounds.west,
+      }
+    : probeShare?.kind === "point"
+      ? { kind: "point", lat: probeShare.lat, lon: probeShare.lon }
+      : sharedPlace
+        ? { kind: "point", lat: sharedPlace.lat, lon: sharedPlace.lon }
+        : { kind: "point", lat: cameraPoint.lat, lon: cameraPoint.lon };
+  const id = newInvestigationId();
+  const isComparing = compare.showing && compare.pinned !== undefined;
+  const comparison = isComparing
+    ? {
+        enabled: true,
+        mode: "temporal" as const,
+        epochB: {
+          start: months[0],
+          end: compare.pinned!,
+          label: `Pinned Baseline (${compare.pinned!.year}-${String(compare.pinned!.month).padStart(2, "0")})`,
+        },
+      }
+    : undefined;
+
+  saveInvestigationContext({
+    id,
+    name: sharedPlace?.name ?? (geometry.kind === "bounds" ? "Drawn study area" : "Selected globe location"),
+    geometry,
+    layerIds: [currentLayer],
+    start: months[0],
+    end: months[currentIndex],
+    temporalResolution: "monthly",
+    createdAt: new Date().toISOString(),
+    explorerUrl: window.location.href,
+    comparison,
+  });
+  playCurtainTransition(() => {
+    window.location.assign(`/investigation/${encodeURIComponent(id)}`);
+  });
+}
+
+document.querySelector<HTMLButtonElement>("#analyze-selection")?.addEventListener("click", openInvestigation);
 
 function adoptSearchResult(result: GeoResult, fromUser: boolean): void {
   const place = sharedPlaceFrom(result);
@@ -1695,7 +1752,7 @@ if (searchEl) {
                 void openThenNow(pick, comparisonHost());
               },
               (err) =>
-                console.warn("RoamingEye: comparison failed to load", err)
+                console.warn("Trend Detective: comparison failed to load", err)
             );
           },
           onPlaceCompare: (pick) => {
@@ -1704,7 +1761,7 @@ if (searchEl) {
                 void openPlaceCompare(pick, comparisonHost());
               },
               (err) =>
-                console.warn("RoamingEye: comparison failed to load", err)
+                console.warn("Trend Detective: comparison failed to load", err)
             );
           },
           layer: () => currentLayer,
@@ -1712,7 +1769,7 @@ if (searchEl) {
       );
       focusSearch = () => mounted.focus();
     },
-    (err) => console.warn("RoamingEye: search failed to load", err)
+    (err) => console.warn("Trend Detective: search failed to load", err)
   );
 }
 
@@ -2078,7 +2135,7 @@ if (probeEl) {
       })
       .catch((err) => {
         if (isAbortError(err)) return;
-        console.warn("RoamingEye: land-cover class read failed", err);
+        console.warn("Trend Detective: land-cover class read failed", err);
         panel.setStatus(
           err instanceof ChunkLoadError
             ? "Reading the land-cover class failed — reload the page to try again."
@@ -2109,7 +2166,7 @@ if (probeEl) {
       })
       .catch((err) => {
         if (isAbortError(err)) return;
-        console.warn("RoamingEye: land-cover region read failed", err);
+        console.warn("Trend Detective: land-cover region read failed", err);
         panel.setStatus(
           err instanceof ChunkLoadError
             ? "Reading the land-cover classes failed — reload the page to try again."
@@ -2488,7 +2545,7 @@ if (probeEl) {
               undefined,
               validFractions
             ),
-          `roamingeye_probe_${mode}_${layer.id}_${lat.toFixed(3)}_${lon.toFixed(3)}.csv`,
+          `error404_probe_${mode}_${layer.id}_${lat.toFixed(3)}_${lon.toFixed(3)}.csv`,
           // SST is an ocean product, so an inland point returns nothing by
           // construction — "no data at this point" reports that domain
           // boundary as a retrieval failure. The marine note defers to the
@@ -2537,7 +2594,7 @@ if (probeEl) {
       })
       .catch((err) => {
         if (isAbortError(err)) return;
-        console.warn("RoamingEye: probe sampling failed", err);
+        console.warn("Trend Detective: probe sampling failed", err);
         panel.setStatus("Sampling failed — check the connection and retry.");
       });
   };
@@ -2904,8 +2961,8 @@ if (probeEl) {
               validFractions
             ),
           place
-            ? `roamingeye_place_${layer.id}_${place.lat.toFixed(3)}_${place.lon.toFixed(3)}.csv`
-            : `roamingeye_region_${layer.id}_${bounds.south.toFixed(2)}_${normalizeLon(bounds.west).toFixed(2)}_${bounds.north.toFixed(2)}_${normalizeLon(bounds.east).toFixed(2)}.csv`,
+            ? `error404_place_${layer.id}_${place.lat.toFixed(3)}_${place.lon.toFixed(3)}.csv`
+            : `error404_region_${layer.id}_${bounds.south.toFixed(2)}_${normalizeLon(bounds.west).toFixed(2)}_${bounds.north.toFixed(2)}_${normalizeLon(bounds.east).toFixed(2)}.csv`,
           // A drawn region that returned nothing is normally explained by the
           // support clause; the marine, snow and vegetation notes only speak
           // when it did not — a region always supplies shares, so those three
@@ -2959,7 +3016,7 @@ if (probeEl) {
       })
       .catch((err) => {
         if (isAbortError(err)) return;
-        console.warn("RoamingEye: region sampling failed", err);
+        console.warn("Trend Detective: region sampling failed", err);
         panel.setStatus("Sampling failed — check the connection and retry.");
       });
   };
@@ -2997,7 +3054,7 @@ if (probeEl) {
           geometry = (await lookupPlace(place.osm))?.geometry ?? null;
         } catch (err) {
           if (!isAbortError(err)) {
-            console.warn("RoamingEye: place outline lookup failed", err);
+            console.warn("Trend Detective: place outline lookup failed", err);
           }
         }
       }
@@ -3128,6 +3185,13 @@ if (probeEl) {
     }
     if (!controls.enabled) return; // a flight owns the camera
     e.preventDefault(); // Space would otherwise scroll the page
+    clearSharedSearch();
+    highlight.show({ lat, lon, geometry: null });
+    runProbe(lat, lon);
+  });
+
+  window.addEventListener("clima:trigger-probe", () => {
+    const { lat, lon } = vector3ToLatLng(camera.position);
     clearSharedSearch();
     highlight.show({ lat, lon, geometry: null });
     runProbe(lat, lon);

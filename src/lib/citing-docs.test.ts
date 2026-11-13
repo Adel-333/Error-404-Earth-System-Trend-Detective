@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { citedDatasets, GIBS_ACKNOWLEDGMENT } from "./providers";
 
 /**
- * Drift guard for the README's "Citing RoamingEye and its data" section:
+ * Drift guard for the README's "Citing Trend Detective and its data" section:
  * the hand-written dataset/DOI table must track the layer configuration the
  * app actually runs on. If a layer's source product changes (e.g. a 061 →
  * 062 re-point caught by the weekly citation contract), this fails until

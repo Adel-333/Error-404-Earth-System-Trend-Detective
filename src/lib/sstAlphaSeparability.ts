@@ -35,7 +35,7 @@ import { LAYERS, type DatasetRef } from "./timeline";
 
 const sstSource = LAYERS.sst.dataset;
 if (!sstSource) {
-  throw new Error("RoamingEye: the SST layer must retain a cited dataset");
+  throw new Error("Trend Detective: the SST layer must retain a cited dataset");
 }
 
 export const SST_ALPHA_SEPARABILITY_SOURCE = {

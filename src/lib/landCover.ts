@@ -12,7 +12,7 @@ import { LAYERS, type DatasetRef } from "./timeline";
 const layer = LAYERS.landcover;
 if (!layer.dataset) {
   throw new Error(
-    "RoamingEye: the land-cover layer must retain a cited dataset"
+    "Trend Detective: the land-cover layer must retain a cited dataset"
   );
 }
 

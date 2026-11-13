@@ -3,7 +3,7 @@
  *
  * NASA GIBS publishes `GLDAS_Underground_Soil_Moisture_Monthly` under the
  * title "Soil Moisture (Monthly, 0-10 cm, Noah LSM, GLDAS)" — the *topmost*
- * Noah soil layer, not the root zone. RoamingEye previously described it as
+ * Noah soil layer, not the root zone. Trend Detective previously described it as
  * "root-zone soil moisture", which is a different variable: GLDAS Noah's root
  * zone is the 0-100 cm column (`RootMoist`), and it is the column agronomy and
  * agricultural-drought work actually use.
@@ -36,7 +36,7 @@ export const SOIL_MOISTURE_DEPTH_LABEL = `${SOIL_MOISTURE_DEPTH_CM.top}-${SOIL_M
 
 /**
  * The depth interval GLDAS Noah's root-zone variable covers. Recorded only to
- * name what this layer is *not*; RoamingEye does not render or sample it.
+ * name what this layer is *not*; Trend Detective does not render or sample it.
  */
 export const GLDAS_ROOT_ZONE_DEPTH_LABEL = "0-100 cm";
 

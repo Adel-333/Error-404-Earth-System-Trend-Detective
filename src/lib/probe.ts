@@ -15,7 +15,7 @@ import { trendSummary, trendCsvHeaders } from "./trend";
  * Point time-series probe: the pure math for turning "the color of a pixel in
  * a GIBS monthly composite" back into an approximate data value.
  *
- * The imagery RoamingEye streams is *rendered* (a colormap applied to the
+ * The imagery Trend Detective streams is *rendered* (a colormap applied to the
  * underlying science data), so the probe inverts that colormap: find where on
  * the legend gradient a sampled RGB sits, and map that position onto the
  * layer's value scale. The result is an **approximation** — good for trends,
@@ -764,7 +764,7 @@ export function buildProbeCsv(
       }`
     : undefined;
   const lines = [
-    `# RoamingEye ${meta.mode} probe — APPROXIMATE values`,
+    `# Trend Detective ${meta.mode} probe — APPROXIMATE values`,
     `# method: colormap inversion of NASA GIBS rendered imagery (${meta.imageWidth}x${meta.imageHeight} equirectangular GetMap)${
       meta.mode === "point" ? "" : "; area-weighted (cos latitude) grid mean"
     }`,
@@ -859,7 +859,7 @@ export function buildProbeCsv(
       : []),
     `# imagery: NASA GIBS (public domain) — https://gibs.earthdata.nasa.gov`,
     `# generated: ${meta.generatedIso}`,
-    `# tool: RoamingEye — https://github.com/zkWizard/RoamingEye`,
+    `# tool: Trend Detective — https://github.com/Team-Error-404/Earth-System-Trend-Detective`,
     ...(meta.toolVersion ? [`# tool_version: ${meta.toolVersion}`] : []),
     ...(meta.viewUrl ? [`# view_url: ${meta.viewUrl}`] : []),
     `year_month,value,anomaly${fractions ? ",valid_fraction" : ""}`,

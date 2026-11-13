@@ -121,6 +121,6 @@ describe("clipFilename", () => {
         "1.2.0",
         "mp4"
       )
-    ).toBe("roamingeye_canada-smoke-2023_2023-04_2023-09_v1.2.0.mp4");
+    ).toBe("error404_canada-smoke-2023_2023-04_2023-09_v1.2.0.mp4");
   });
 });

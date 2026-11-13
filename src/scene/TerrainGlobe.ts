@@ -422,7 +422,7 @@ export class TerrainGlobe {
     this.swapChain = this.swapChain
       .then(() => this.runSwap(desired, generation))
       .catch((err: unknown) => {
-        console.warn("RoamingEye: science drape failed to swap", err);
+        console.warn("Trend Detective: science drape failed to swap", err);
         this.retryAt = performance.now() + SWAP_RETRY_MS;
       })
       .finally(() => {
@@ -469,7 +469,7 @@ export class TerrainGlobe {
     try {
       this.imageOverlays.deleteOverlay(overlay);
     } catch (err) {
-      console.warn("RoamingEye: retiring a science overlay failed", err);
+      console.warn("Trend Detective: retiring a science overlay failed", err);
     }
   }
 }

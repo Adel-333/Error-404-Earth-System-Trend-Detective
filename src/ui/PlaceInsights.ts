@@ -391,7 +391,7 @@ export class PlaceInsights {
     const anchor = document.createElement("a");
     anchor.href = URL.createObjectURL(blob);
     // Keep the searched place out of the filename; it may be personal context.
-    anchor.download = "roamingeye-place-change.csv";
+    anchor.download = "error404-place-change.csv";
     anchor.click();
     URL.revokeObjectURL(anchor.href);
   }
