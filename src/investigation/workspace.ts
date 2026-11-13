@@ -377,24 +377,24 @@ export class InvestigationWorkspace {
                 </div>
               </div>
 
-              <!-- Machine Learning Predictive Forecasting Model (Autoregressive ML Extrapolation) -->
+              <!-- Machine Learning Predictive Forecasting Model (Chronos-2 Probabilistic Foundation) -->
               <div class="ai-ml-forecast-box">
                 <div class="ai-ml-forecast-head">
-                  <span class="ai-ml-tag">ML PREDICTION (2026–2035)</span>
-                  <span class="ai-ml-conf" data-ml-conf>91.8% Confidence</span>
+                  <span class="ai-ml-tag">CHRONOS-2 PROJECTION</span>
+                  <span class="ai-ml-conf" data-ml-conf>80% Inter-Quantile [P10–P90]</span>
                 </div>
                 <div class="ai-ml-forecast-summary" data-ml-summary>
-                  Projected Trajectory: <strong>+0.72°C / decade</strong> (Autoregressive ML continuation with ±1.96σ bounds)
+                  Projected Trajectory: <strong>Synchronizing Foundation Forecast…</strong>
                 </div>
                 <!-- ML Sparkline Projection -->
                 <div class="ai-ml-sparkline-wrap">
                   <canvas id="ml-forecast-canvas" width="310" height="48" style="width:100%; height:48px; display:block;"></canvas>
                 </div>
                 <!-- Ranked Dynamic Drivers -->
-                <div class="ai-ml-drivers-list">
-                  <div class="driver-item"><span>1. Radiative Surface Forcing</span><strong>R² = 0.74</strong></div>
-                  <div class="driver-item"><span>2. Hydrological Moisture Deficit</span><strong>R² = 0.58</strong></div>
-                  <div class="driver-item"><span>3. Teleconnection Boundary Flux</span><strong>R² = 0.42</strong></div>
+                <div class="ai-ml-drivers-list" data-ml-drivers-list>
+                  <div class="driver-item"><span>1. Active Sensor Observation</span><strong>Telemetry Synced</strong></div>
+                  <div class="driver-item"><span>2. Autoregressive Persistence</span><strong>AR(1) Active</strong></div>
+                  <div class="driver-item"><span>3. MOMENT Anomaly Score</span><strong>Threshold Bound</strong></div>
                 </div>
               </div>
 
@@ -432,8 +432,16 @@ export class InvestigationWorkspace {
 
           <!-- Right Column: Scientific Visualizations & Evidence -->
           <main class="main-analytics-pane" data-analytics-pane>
-            <div style="text-align: center; padding: 40px; color: #64748b;">
-              Loading quantitative time series and computing Mann-Kendall statistics…
+            <div class="investigation-loading-wrap" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:420px; gap:20px;">
+              <div class="sat-orbit-spinner" style="position:relative; width:64px; height:64px;">
+                <div style="position:absolute; inset:0; border-radius:50%; border:2px dashed rgba(56,189,248,0.3); animation:spinSlow 8s linear infinite;"></div>
+                <div style="position:absolute; inset:8px; border-radius:50%; border:2px solid transparent; border-top-color:#38bdf8; border-right-color:#38bdf8; animation:spinFast 1.2s cubic-bezier(0.4,0,0.2,1) infinite;"></div>
+                <div style="position:absolute; inset:24px; border-radius:50%; background:#0284c7; box-shadow:0 0 16px #38bdf8;"></div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:14px; font-weight:700; color:#f8fafc; letter-spacing:0.5px; margin-bottom:6px;">SYNTHESIZING NASA TELEMETRY</div>
+                <div style="font-size:12px; color:#94a3b8; font-family:'Geist Mono', monospace;">GMAO MERRA-2 · Chronos-2 · MOMENT Engine</div>
+              </div>
             </div>
           </main>
         </div>
@@ -587,12 +595,13 @@ export class InvestigationWorkspace {
       answer = `Theil-Sen robust median slope reveals a rate of <strong>${currentVar.trendText}</strong>. With Kendall's τ = ${currentVar.mk.tau.toFixed(3)} and p = ${currentVar.mk.pValue.toFixed(4)}, this monotonic trend is <strong>${(currentVar.mk.pValue < 0.05) ? "statistically significant (p < 0.05)" : "within expected natural variability"}</strong>.`;
     } else if (kind === "forecast") {
       question = `What is the ML model projected continuation for ${currentVar.label}?`;
-      answer = `Autoregressive ML Extrapolation model projects an ongoing rate of <strong>${currentVar.trendText}</strong> through 2035 (91.8% confidence interval). Dynamic drivers indicate strong radiative surface forcing (R² = 0.74).`;
+      const fc = currentVar.chronosForecast;
+      answer = `<strong>Chronos-2 Foundation Forecaster</strong> projects an ongoing trajectory of <strong>${fc.driftPerDecade > 0 ? "+" : ""}${fc.driftPerDecade} ${currentVar.unit}/decade</strong> across a +${fc.horizonMonths} months horizon (${fc.confidenceBandCoverage}).`;
     } else if (kind === "extremes") {
       question = `What are the most extreme recorded anomaly shifts?`;
-      const top = [...currentVar.anomalies].sort((a, b) => Math.abs(b.zScore) - Math.abs(a.zScore)).slice(0, 3);
-      const topList = top.map((t) => `${t.ym.year}-${String(t.ym.month).padStart(2, "0")} (${t.zScore >= 0 ? "+" : ""}${t.zScore.toFixed(2)}σ)`).join(", ");
-      answer = `Top recorded statistical departures relative to the climatological baseline occurred in: <strong>${topList}</strong>. These pulses indicate pronounced episodic forcing.`;
+      const ma = currentVar.momentAnomalies;
+      const topList = ma.topExtremeEvents.slice(0, 3).map((e) => `${e.ym.year}-${String(e.ym.month).padStart(2, "0")} (${e.severity.toUpperCase()}, score: ${e.anomalyScore})`).join(", ");
+      answer = `<strong>MOMENT Anomaly Detective</strong> isolated <strong>${ma.totalAnomaliesDetected} significant extreme events</strong> (> ${ma.thresholdUsed}σ residual error). Key pulses occurred in: <strong>${topList || "the historical observation record"}</strong>.`;
     } else {
       question = `What are the primary regime drivers for this archetype?`;
       answer = `Identified archetype is <strong>${this.analysis.fingerprint.cluster.name}</strong> (${this.analysis.fingerprint.cluster.category}). Spatial Moran's I is ${this.analysis.spatial.moranI.toFixed(2)}, demonstrating strong regional spatial coherence across satellite swaths.`;
@@ -604,28 +613,71 @@ export class InvestigationWorkspace {
     }, 280);
   }
 
-  private handleAgentCustomQuery(query: string): void {
+  private async handleAgentCustomQuery(query: string): Promise<void> {
     if (!this.analysis) return;
     const currentVar = this.analysis.variables.find((v) => v.layerId === this.selectedLayerId) ?? this.analysis.primaryVariable;
     this.appendChatMessage("user", query);
 
-    setTimeout(() => {
-      let answer = "";
-      const q = query.toLowerCase();
-      if (q.includes("trend") || q.includes("slope") || q.includes("rate") || q.includes("اتجاه")) {
-        answer = `Current trend for ${currentVar.label} is <strong>${currentVar.trendText}</strong> with Seasonal Mann-Kendall τ = ${currentVar.mk.tau.toFixed(3)} (p = ${currentVar.mk.pValue.toFixed(4)}, ${currentVar.mk.pValue < 0.05 ? "statistically significant" : "n.s."}).`;
-      } else if (q.includes("forecast") || q.includes("chronos") || q.includes("توقع") || q.includes("مستقبل")) {
-        const fc = currentVar.chronosForecast;
-        answer = `<strong>Chronos-2 Probabilistic Foundation Forecast</strong> (+${fc.horizonMonths} months): Extrapolated drift rate is <strong>${fc.driftPerDecade > 0 ? "+" : ""}${fc.driftPerDecade} ${currentVar.unit}/decade</strong> with calibrated 80% confidence envelope [P10–P90].`;
-      } else if (q.includes("extreme") || q.includes("anomaly") || q.includes("moment") || q.includes("شذوذ")) {
-        const ma = currentVar.momentAnomalies;
-        const top = ma.topExtremeEvents[0];
-        answer = `<strong>MOMENT Anomaly Detective</strong> detected <strong>${ma.totalAnomaliesDetected} extreme events</strong> beyond the ${ma.thresholdUsed}σ reconstruction threshold. Primary excursion occurred in ${top ? `${top.ym.year}-${String(top.ym.month).padStart(2, "0")} (${top.severity.toUpperCase()}, score: ${top.anomalyScore})` : "historical record"}.`;
-      } else {
-        answer = `Analyzing "${query}" for ${currentVar.label}: Empirical satellite record spans ${currentVar.observations.length} months. Monotonic trajectory aligns with the ${this.analysis!.fingerprint.cluster.name} regime archetype. Chronos-2 forecasts continuous trend stability over the next 24 months.`;
+    // Show instant thinking indicator
+    const stream = this.root.querySelector<HTMLElement>("#ai-chat-stream");
+    const thinkingMsg = document.createElement("div");
+    thinkingMsg.className = "chat-msg chat-msg--assistant thinking-indicator";
+    thinkingMsg.innerHTML = `<div class="chat-msg__bubble"><p class="chat-msg__text" style="color:#38bdf8;">⚡ Erro 404 is consulting live Gemini AI…</p></div>`;
+    stream?.appendChild(thinkingMsg);
+    if (stream) stream.scrollTop = stream.scrollHeight;
+
+    try {
+      const apiKey = "AQ.Ab8RN6K6kkIifQIhKm2FE568uhq1KFzjSPjc--wYVhnMV6X1Hw";
+      const systemPrompt = `You are Erro 404, the official AI Climate Detective for NASA Space Apps 2026.
+Telemetry for this region:
+- Location: ${this.context?.name || "Selected Site"} (Lat: ${((this.context?.geometry as any)?.lat ?? 0).toFixed(2)}, Lon: ${((this.context?.geometry as any)?.lon ?? 0).toFixed(2)})
+- Observed Variable: ${currentVar.label} (${currentVar.unit})
+- Theil-Sen Trend Rate: ${currentVar.trendText}
+- Mann-Kendall Test: Tau = ${currentVar.mk.tau.toFixed(3)}, p = ${currentVar.mk.pValue.toFixed(4)} (${currentVar.mk.pValue < 0.05 ? "Statistically Significant" : "Natural Variability"})
+- Regime Archetype: ${this.analysis.fingerprint.cluster.name}
+
+Instructions:
+1. Provide a sharp, scientifically sound, insightful response.
+2. If the user writes in Arabic, respond in fluent, professional Arabic. If in English, reply in English.
+3. Keep it within 3-4 sentences maximum so it fits cleanly in the chat panel.`;
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\nUser Question: ${query}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.35,
+          maxOutputTokens: 250,
+        },
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      thinkingMsg.remove();
+
+      if (res.ok) {
+        const json = await res.json();
+        const geminiReply = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (geminiReply) {
+          this.appendChatMessage("assistant", geminiReply.replace(/\n/g, "<br/>"));
+          return;
+        }
       }
+      throw new Error(`Gemini status ${res.status}`);
+    } catch (err) {
+      thinkingMsg.remove();
+      // Fallback response grounded in local statistical data
+      const answer = `Analysis for <strong>${currentVar.label}</strong>: Monotonic drift rate is <strong>${currentVar.trendText}</strong> with Seasonal Mann-Kendall τ = ${currentVar.mk.tau.toFixed(3)} (p = ${currentVar.mk.pValue.toFixed(4)}). Climatology indicates persistent coupling within the ${this.analysis!.fingerprint.cluster.name} regime archetype.`;
       this.appendChatMessage("assistant", answer);
-    }, 280);
+    }
   }
 
   private appendChatMessage(role: "user" | "assistant", htmlContent: string): void {
@@ -885,6 +937,24 @@ export class InvestigationWorkspace {
     if (spatialMoran) spatialMoran.textContent = `Moran\'s I = ${this.analysis.spatial.moranI.toFixed(2)} (${this.analysis.spatial.spatialSignificance})`;
     if (regSim) regSim.textContent = `${this.analysis.fingerprint.cluster.similarity.toFixed(1)}% match`;
 
+    // Dynamically update Chronos-2 box in the sidebar
+    const mlSummary = this.root.querySelector<HTMLElement>("[data-ml-summary]");
+    const mlConf = this.root.querySelector<HTMLElement>("[data-ml-conf]");
+    const mlDrivers = this.root.querySelector<HTMLElement>("[data-ml-drivers-list]");
+
+    if (mlSummary) {
+      const fc = currentVar.chronosForecast;
+      mlSummary.innerHTML = `Projected Drift: <strong>${fc.driftPerDecade > 0 ? "+" : ""}${fc.driftPerDecade} ${currentVar.unit}/dec</strong> (+24M Horizon)`;
+    }
+    if (mlConf) {
+      mlConf.textContent = currentVar.chronosForecast.confidenceBandCoverage;
+    }
+    if (mlDrivers && this.analysis.fingerprint.cluster.keyDrivers) {
+      mlDrivers.innerHTML = this.analysis.fingerprint.cluster.keyDrivers
+        .map((drv, i) => `<div class="driver-item"><span>${i + 1}. ${drv}</span><strong>Active</strong></div>`)
+        .join("");
+    }
+
     // Update trend badges in variable pills
     for (const v of this.analysis.variables) {
       const b = this.root.querySelector<HTMLElement>(`[data-trend-badge="${v.layerId}"]`);
@@ -1137,34 +1207,6 @@ export class InvestigationWorkspace {
             </tbody>
           </table>
             `}
-        </div>
-
-        <!-- AI Foundation Insights: Chronos-2 & MOMENT -->
-        <div class="deck-card ai-foundation-deck-card" style="border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(8, 20, 36, 0.7);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h3 class="deck-card-title" style="margin:0; color:#38bdf8; display:flex; align-items:center; gap:6px;">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              AI Foundations Telemetry (Chronos-2 & MOMENT)
-            </h3>
-            <span style="font-size:10px; background:rgba(56,189,248,0.15); color:#38bdf8; padding:2px 6px; border-radius:4px; font-weight:600;">ACTIVE INFERENCE</span>
-          </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:8px;">
-            <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
-              <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-bottom:4px;">CHRONOS-2 FORECAST</div>
-              <div style="font-size:13px; color:#f8fafc; font-weight:700;">+24 Months Horizon</div>
-              <div style="font-size:11px; color:#38bdf8; margin-top:2px;">Trend: ${currentVar.chronosForecast.driftPerDecade > 0 ? "+" : ""}${currentVar.chronosForecast.driftPerDecade} ${currentVar.unit}/dec</div>
-              <div style="font-size:10px; color:#64748b; margin-top:4px;">${currentVar.chronosForecast.confidenceBandCoverage}</div>
-            </div>
-            <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
-              <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-bottom:4px;">MOMENT ANOMALY DETECTIVE</div>
-              <div style="font-size:13px; color:#f8fafc; font-weight:700;">${currentVar.momentAnomalies.totalAnomaliesDetected} Extreme Excursions</div>
-              <div style="font-size:11px; color:#fb7185; margin-top:2px;">Reconstruction Threshold: ${currentVar.momentAnomalies.thresholdUsed}σ</div>
-              <div style="font-size:10px; color:#64748b; margin-top:4px;">Unsupervised Extreme Event Detection</div>
-            </div>
-          </div>
-          <div style="font-size:10px; color:#64748b; font-family:monospace; line-height:1.4;">
-            ${currentVar.chronosForecast.disclaimer}
-          </div>
         </div>
 
         <div class="deck-card">

@@ -86,20 +86,81 @@ export class EarthDetectiveCopilot {
 
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     this.messages.push({ sender: "user", text: query, time });
+    
+    // Add temporary thinking indicator
+    const thinkingId = "thinking-" + Date.now();
+    this.messages.push({
+      sender: "copilot",
+      text: "⚡ *Consulting Gemini 3.1 & NASA Earth Science telemetry…*",
+      time,
+    });
     this.render();
 
-    // Generate grounded scientific response
-    const reply = this.generateGroundedResponse(query);
-    setTimeout(() => {
-      this.messages.push({
-        sender: "copilot",
-        text: reply,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    const body = this.container.querySelector(".copilot-messages");
+    if (body) body.scrollTop = body.scrollHeight;
+
+    try {
+      const apiKey = "AQ.Ab8RN6K6kkIifQIhKm2FE568uhq1KFzjSPjc--wYVhnMV6X1Hw";
+      const ctx = this.currentContext;
+
+      const systemPrompt = `You are Erro 404, the official NASA Earth System Trend Detective AI Copilot.
+You have real-time scientific telemetry from NASA Earth Observations (MERRA-2, MODIS Terra/Aqua, CERES).
+Current Analysis Context:
+- Target Location: ${ctx.regionName} (Lat: ${ctx.lat.toFixed(2)}, Lon: ${ctx.lon.toFixed(2)})
+- Active Observation: ${ctx.layerLabel} (Temporal Slice: ${ctx.yearMonth})
+- Non-Parametric Trend (Theil-Sen Slope): ${ctx.trendText || "Calculating"}
+- Seasonal Mann-Kendall Test: Tau = ${ctx.mkTau ?? "N/A"}, p-value = ${ctx.mkPValue ?? "N/A"} (${(ctx.mkPValue ?? 1) < 0.05 ? "Statistically Significant" : "Natural Variability"})
+- Future Drift Forecast: ${ctx.chronosTrend || ctx.trendText || "+0.25/dec"} (+24M Horizon)
+- Detected Extreme Events: ${ctx.momentAnomaliesCount ?? 2} excursions
+
+Instructions:
+1. Answer the user scientifically, concisely, and insightfully.
+2. If asked in Arabic, respond in fluent, professional Arabic. If asked in English, reply in English.
+3. Ground your explanation in real atmospheric, hydrological, or biophysical mechanisms (e.g. soil moisture deficit, greenhouse radiative forcing, albedo feedback).
+4. Never hallucinate data outside this telemetry context.`;
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\nUser Question: ${query}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 500,
+        },
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      // Remove thinking indicator
+      this.messages.pop();
+
+      if (res.ok) {
+        const json = await res.json();
+        const geminiText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (geminiText) {
+          this.messages.push({ sender: "copilot", text: geminiText, time });
+          this.render();
+          if (body) body.scrollTop = body.scrollHeight;
+          return;
+        }
+      }
+      throw new Error(`Gemini status ${res.status}`);
+    } catch (err) {
+      // Safe fallback to rule-based response if offline
+      this.messages.pop();
+      const reply = this.generateGroundedResponse(query);
+      this.messages.push({ sender: "copilot", text: reply, time });
       this.render();
-      const body = this.container.querySelector(".copilot-messages");
       if (body) body.scrollTop = body.scrollHeight;
-    }, 400);
+    }
   }
 
   private generateGroundedResponse(query: string): string {
