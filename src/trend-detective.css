@@ -2953,3 +2953,204 @@ body {
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               opacity 0.2s ease !important;
 }
+/* Text-first Views chooser */
+.clima-cards-backdrop {
+  background: rgba(4, 13, 29, 0.72);
+}
+
+.clima-cards-modal {
+  width: min(920px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(86dvh, 820px);
+  border-radius: 20px;
+}
+
+.explore-cards-panel {
+  gap: 20px;
+  padding: clamp(18px, 3vw, 30px);
+  border-radius: 20px;
+  background: #f3f7fb;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 28px 70px rgba(1, 11, 27, 0.35);
+}
+
+.explore-cards-panel .clima-panel__header {
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d9e3ed;
+}
+
+.explore-header-left {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.explore-cards-panel .clima-panel__title {
+  color: #11263d;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.explore-count-tag {
+  padding: 5px 9px;
+  font-size: 0.72rem;
+}
+
+.explore-cards-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.explore-card {
+  display: grid;
+  min-width: 0;
+  border: 1px solid #d7e2ed;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 37, 61, 0.05);
+}
+
+.explore-card.is-active {
+  border-color: #0284c7;
+  box-shadow: inset 4px 0 0 #0284c7, 0 6px 20px rgba(2, 132, 199, 0.12);
+}
+
+.explore-card__main {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  min-width: 0;
+  gap: 14px;
+  padding: 18px 18px 12px;
+  border: 0;
+  background: transparent;
+  color: #0f253d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.explore-card__number {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  background: #e8f4fb;
+  color: #0369a1;
+  font: 700 0.72rem var(--font-mono, monospace);
+}
+
+.explore-card__copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+
+.explore-card__title {
+  font-size: 0.95rem;
+  line-height: 1.25;
+  font-weight: 720;
+  cursor: inherit;
+}
+
+.explore-card__blurb {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #607389;
+}
+
+.explore-card__arrow {
+  align-self: center;
+  color: #0284c7;
+  font-size: 1.25rem;
+}
+
+.explore-card__content {
+  padding: 0 18px 14px 68px;
+}
+
+.explore-card__actions {
+  gap: 6px;
+  padding-top: 11px;
+}
+
+.explore-card__action-btn {
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #f5f9fc;
+  color: #36516b;
+  font-size: 0.7rem;
+}
+
+.explore-card__main:focus-visible,
+.explore-card__action-btn:focus-visible {
+  outline: 3px solid #38bdf8;
+  outline-offset: -3px;
+}
+
+.toolbar__views .view-cards {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.toolbar__views .view-card {
+  border-radius: 10px;
+}
+
+.toolbar__views .view-card__open {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 2px 9px;
+  padding: 10px;
+}
+
+.view-card__number {
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--accent);
+  font: 700 0.72rem var(--font-mono, monospace);
+}
+
+.toolbar__views .view-card__title,
+.toolbar__views .view-card__blurb {
+  padding: 0;
+}
+
+.toolbar__views .view-card__actions {
+  padding: 0 8px 8px 49px;
+}
+
+@media (max-width: 700px) {
+  .clima-cards-overlay {
+    align-items: flex-end;
+  }
+
+  .clima-cards-modal {
+    width: 100vw;
+    max-height: min(88dvh, 900px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .explore-cards-panel {
+    padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+  }
+
+  .explore-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .explore-card__main {
+    min-height: 72px;
+  }
+
+  .explore-card__action-btn {
+    min-height: 42px;
+  }
+}

@@ -589,6 +589,13 @@ statusEl?.insertAdjacentElement("afterend", retryBtn);
 retryBtn.addEventListener("click", () => refreshGlobe());
 
 function refreshGlobe(): void {
+  const selectedMonth = months[currentIndex];
+  earthDetectiveCopilot.updateContext({
+    layerId: currentLayer,
+    layerLabel: LAYERS[currentLayer].label,
+    yearMonth: selectedMonth ? selectedMonth.year + "-" + String(selectedMonth.month).padStart(2, "0") : "No month selected",
+    trendText: undefined,
+  });
   retryBtn.hidden = true;
   const layer = LAYERS[currentLayer];
   const ym = months[currentIndex];
@@ -2182,6 +2189,7 @@ if (probeEl) {
     const layer = LAYERS[currentLayer];
     const mode = panel.mode;
     probeTarget = { lat, lon };
+    earthDetectiveCopilot.updateContext({ regionName: formatLatLng({ lat, lon }), lat, lon });
     chartedPlace = undefined; // a click replaces a place chart
     // The mode goes into the share hash with the coordinates: it selects which
     // statistic the series reports, and the CSV this same view stamps a

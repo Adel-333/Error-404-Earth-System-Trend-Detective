@@ -1,4 +1,4 @@
-import { VIEW_CARDS, viewCardThumbnail, type ViewCard } from "./viewCards";
+import { VIEW_CARDS, type ViewCard } from "./viewCards";
 import type { LayerId } from "../lib/timeline";
 
 export interface ExploreCardsPanelCallbacks {
@@ -44,23 +44,19 @@ export class ExploreCardsPanel {
       </div>
 
       <div class="explore-cards-grid">
-        ${VIEW_CARDS.map((card) => {
+        ${VIEW_CARDS.map((card, index) => {
           const isActive = card.layer === this.currentLayer;
-          const thumbUrl = viewCardThumbnail(card.thumbnailLayer);
           return `
             <article class="explore-card ${isActive ? "is-active" : ""}" data-card-id="${card.id}" data-layer="${card.layer ?? ""}">
-              <div class="explore-card__thumb-wrap">
-                <img class="explore-card__thumb" src="${thumbUrl}" alt="${card.title}" loading="lazy" />
-                <button type="button" class="explore-card__view-btn" title="View ${card.title} on globe">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-                  <span>Explore</span>
-                </button>
-              </div>
-
+              <button type="button" class="explore-card__main" aria-label="Explore ${card.title}">
+                <span class="explore-card__number">${String(index + 1).padStart(2, "0")}</span>
+                <span class="explore-card__copy">
+                  <strong class="explore-card__title">${card.title}</strong>
+                  <span class="explore-card__blurb">${card.blurb}</span>
+                </span>
+                <span class="explore-card__arrow" aria-hidden="true">→</span>
+              </button>
               <div class="explore-card__content">
-                <h3 class="explore-card__title">${card.title}</h3>
-                <p class="explore-card__blurb">${card.blurb}</p>
-
                 <div class="explore-card__actions">
                   <button type="button" class="explore-card__action-btn then-now-btn" title="Compare Then & Now">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="3" x2="12" y2="21"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/></svg>
@@ -91,10 +87,7 @@ export class ExploreCardsPanel {
       if (!card) return;
 
       // Click anywhere on thumbnail or title -> switch view
-      cardEl.querySelector(".explore-card__thumb-wrap")?.addEventListener("click", () => {
-        this.callbacks.onSelectCard(card);
-      });
-      cardEl.querySelector(".explore-card__title")?.addEventListener("click", () => {
+      cardEl.querySelector(".explore-card__main")?.addEventListener("click", () => {
         this.callbacks.onSelectCard(card);
       });
 

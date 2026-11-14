@@ -355,29 +355,16 @@ export class InvestigationWorkspace {
                     </div>
                     <div class="erro-status">
                       <span class="erro-dot"></span>
-                      <span>Active Earth System Intelligence</span>
+                      <span>Ask about this investigation</span>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <!-- Climate Regime Banner (Full Width, Uncramped, High Legibility) -->
-              <div class="erro-regime-card">
-                <div class="erro-regime-top">
-                  <span class="regime-pill" data-regime-category>REGIME 2A</span>
-                  <span class="regime-match" data-regime-sim>88.5% match</span>
-                </div>
-                <div class="regime-name" data-regime-name>Temperate Dynamic Transition Zone</div>
-                <div class="regime-coherence-line">
-                  <span class="coherence-label">Spatial Coherence:</span>
-                  <span class="coherence-val" data-spatial-moran>Moran's I = 0.64 (p &lt; 0.001)</span>
                 </div>
               </div>
 
               <!-- Machine Learning Predictive Forecasting Model (Chronos-2 Probabilistic Foundation) -->
               <div class="ai-ml-forecast-box">
                 <div class="ai-ml-forecast-head">
-                  <span class="ai-ml-tag">CHRONOS-2 PROJECTION</span>
+                  <span class="ai-ml-tag">Forecast outlook</span>
                   <span class="ai-ml-conf" data-ml-conf>80% Inter-Quantile [P10–P90]</span>
                 </div>
                 <div class="ai-ml-forecast-summary" data-ml-summary>
@@ -400,7 +387,7 @@ export class InvestigationWorkspace {
                 <div class="chat-msg chat-msg--assistant">
                   <div class="chat-msg__bubble">
                     <p class="chat-msg__text" id="ai-greeting-text">
-                      Hello! I'm <strong>Erro</strong>. I've synthesized multidecadal satellite observations for this location. Ask me about trend velocity, anomalies, or physical couplings.
+                      Hi, I'm <strong>Erro</strong>. Choose a question below or ask about the selected variable and region.
                     </p>
                   </div>
                 </div>
@@ -408,15 +395,16 @@ export class InvestigationWorkspace {
 
               <!-- Quick Prompt Action Chips -->
               <div class="ai-prompt-chips">
-                <button type="button" class="ai-chip-btn" data-agent-ask="trend">Trend Dynamics</button>
-                <button type="button" class="ai-chip-btn" data-agent-ask="forecast">ML Projection</button>
-                <button type="button" class="ai-chip-btn" data-agent-ask="extremes">Historic Shifts</button>
+                <button type="button" class="ai-chip-btn" data-agent-ask="trend">Explain the trend</button>
+                <button type="button" class="ai-chip-btn" data-agent-ask="forecast">Show the outlook</button>
+                <button type="button" class="ai-chip-btn" data-agent-ask="extremes">Find unusual months</button>
                 ${this.isComparing ? `<button type="button" class="ai-chip-btn" data-agent-ask="compare" style="background:#fffbeb;border-color:#fde68a;color:#b45309;font-weight:700;">Comparative Verdict</button>` : ""}
               </div>
 
               <!-- Interactive Prompt Input (Direct Model Interface Ready) -->
               <form class="ai-chat-form" id="ai-chat-form">
-                <input type="text" class="ai-chat-input" id="ai-chat-input" placeholder="Ask Erro about this location…" autocomplete="off" />
+                <label class="sr-only" for="ai-chat-input">Ask Erro about this investigation</label>
+                <input type="text" class="ai-chat-input" id="ai-chat-input" placeholder="Ask about this place or chart…" autocomplete="off" />
                 <button type="submit" class="ai-chat-send" title="Send query to Erro">
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4">
                     <line x1="22" y1="2" x2="11" y2="13"/>
@@ -921,20 +909,7 @@ Instructions:
       this.analysis.variables.find((v) => v.layerId === this.secondaryLayerId && v.layerId !== currentVar.layerId) ??
       this.analysis.variables.find((v) => v.layerId !== currentVar.layerId);
 
-    // Update left sidebar AI regime dynamics (non-duplicated)
-    const regCat = this.root.querySelector<HTMLElement>("[data-regime-category]");
-    const regName = this.root.querySelector<HTMLElement>("[data-regime-name]");
-    const regDesc = this.root.querySelector<HTMLElement>("[data-regime-desc]");
-    const spatialMoran = this.root.querySelector<HTMLElement>("[data-spatial-moran]");
-    const regSim = this.root.querySelector<HTMLElement>("[data-regime-sim]");
-
-    if (regCat) regCat.textContent = this.analysis.fingerprint.cluster.category;
-    if (regName) regName.textContent = this.analysis.fingerprint.cluster.name;
-    if (regDesc) regDesc.textContent = this.analysis.summary.description;
-    if (spatialMoran) spatialMoran.textContent = `Moran\'s I = ${this.analysis.spatial.moranI.toFixed(2)} (${this.analysis.spatial.spatialSignificance})`;
-    if (regSim) regSim.textContent = `${this.analysis.fingerprint.cluster.similarity.toFixed(1)}% match`;
-
-    // Dynamically update Chronos-2 box in the sidebar
+    // Update the forecast card in the assistant panel
     const mlSummary = this.root.querySelector<HTMLElement>("[data-ml-summary]");
     const mlConf = this.root.querySelector<HTMLElement>("[data-ml-conf]");
     const mlDrivers = this.root.querySelector<HTMLElement>("[data-ml-drivers-list]");

@@ -126,9 +126,9 @@ export class Toolbar {
     const grid = document.createElement("div");
     grid.className = "view-cards";
     // The card list and its thumbnail URLs stay out of the entry chunk.
-    void import("./viewCards").then(({ VIEW_CARDS, viewCardThumbnail }) => {
+    void import("./viewCards").then(({ VIEW_CARDS }) => {
       for (const card of VIEW_CARDS)
-        this.mountCard(grid, card, viewCardThumbnail);
+        this.mountCard(grid, card);
       if (this.activeLayer) this.setActiveLayer(this.activeLayer);
       this.updateOverflow();
     });
@@ -138,8 +138,7 @@ export class Toolbar {
 
   private mountCard(
     grid: HTMLElement,
-    card: ViewCard,
-    thumbnail: (layerId: LayerId) => string
+    card: ViewCard
   ): void {
     const article = document.createElement("article");
     article.className = "view-card";
@@ -149,22 +148,16 @@ export class Toolbar {
     const open = document.createElement("button");
     open.type = "button";
     open.className = "view-card__open";
-    const img = document.createElement("img");
-    img.className = "view-card__thumb";
-    img.alt = "";
-    img.width = 280;
-    img.height = 150;
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.src = thumbnail(card.thumbnailLayer);
-    img.addEventListener("error", () => img.classList.add("is-missing"));
+    const number = document.createElement("span");
+    number.className = "view-card__number";
+    number.textContent = String(this.cards.size + 1).padStart(2, "0");
     const title = document.createElement("span");
     title.className = "view-card__title";
     title.textContent = card.title;
     const blurb = document.createElement("span");
     blurb.className = "view-card__blurb";
     blurb.textContent = card.blurb;
-    open.append(img, title, blurb);
+    open.append(number, title, blurb);
     open.addEventListener("click", () => this.handlers.onView?.(card));
 
     const actions = document.createElement("div");
