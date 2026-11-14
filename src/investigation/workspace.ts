@@ -15,6 +15,7 @@ import {
   type AnalyzedVariable,
 } from "./analysis";
 import { investigationProvider } from "./provider";
+import { getGeminiApiKey, GEMINI_API_ENDPOINT } from "../lib/geminiConfig";
 
 function ymToValue(ym: YearMonth): string {
   return `${ym.year}-${String(ym.month).padStart(2, "0")}`;
@@ -612,21 +613,31 @@ export class InvestigationWorkspace {
     if (stream) stream.scrollTop = stream.scrollHeight;
 
     try {
-      const apiKey = "AQ.Ab8RN6K6kkIifQIhKm2FE568uhq1KFzjSPjc--wYVhnMV6X1Hw";
-      const systemPrompt = `You are Erro 404, the official AI Climate Detective for NASA Space Apps 2026.
-Telemetry for this region:
-- Location: ${this.context?.name || "Selected Site"} (Lat: ${((this.context?.geometry as any)?.lat ?? 0).toFixed(2)}, Lon: ${((this.context?.geometry as any)?.lon ?? 0).toFixed(2)})
-- Observed Variable: ${currentVar.label} (${currentVar.unit})
-- Theil-Sen Trend Rate: ${currentVar.trendText}
-- Mann-Kendall Test: Tau = ${currentVar.mk.tau.toFixed(3)}, p = ${currentVar.mk.pValue.toFixed(4)} (${currentVar.mk.pValue < 0.05 ? "Statistically Significant" : "Natural Variability"})
-- Regime Archetype: ${this.analysis.fingerprint.cluster.name}
+      const apiKey = getGeminiApiKey();
+      const cf = currentVar.chronosForecast;
+      const ma = currentVar.momentAnomalies;
+      const topAnomalies = ma.topExtremeEvents.slice(0, 3).map((e) => `${e.ym.year}-${String(e.ym.month).padStart(2, "0")} (${e.severity}, score: ${e.anomalyScore})`).join(", ");
+
+      const systemPrompt = `You are Erro 404, the official NASA Earth System Trend Detective AI Copilot.
+You have real-time scientific telemetry from active multidecadal Earth observations (2000–2026), statistical estimators, and client-side foundation time-series algorithms.
+
+Current Active Telemetry:
+- Location: ${this.context?.name || "Selected Site"} (Lat: ${((this.context?.geometry as any)?.lat ?? 0).toFixed(2)}°, Lon: ${((this.context?.geometry as any)?.lon ?? 0).toFixed(2)}°)
+- Observed Layer: ${currentVar.label} (${currentVar.unit})
+- Data Provenance: ${currentVar.isSimulated ? "Physically simulated climatological baseline" : "Verified Real NASA GMAO MERRA-2 & POWER Observation Archive"}
+- Theil-Sen Robust Median Drift: ${currentVar.trendText}
+- Seasonal Mann-Kendall Test: Tau = ${currentVar.mk.tau.toFixed(3)}, p = ${currentVar.mk.pValue.toFixed(4)} (${currentVar.mk.pValue < 0.05 ? "Statistically Significant Monotonic Drift" : "Within Natural Baseline Variability"})
+- Chronos-2 Foundation Forecaster: Projected trajectory is ${cf.driftPerDecade > 0 ? "+" : ""}${cf.driftPerDecade} ${currentVar.unit}/decade over a +${cf.horizonMonths} months horizon within an ${cf.confidenceBandCoverage} uncertainty cone (P10–P90).
+- MOMENT Anomaly Detective: Detected ${ma.totalAnomaliesDetected} extreme events exceeding ${ma.thresholdUsed}σ threshold. Top pulses: ${topAnomalies || "Historical baseline nominal"}.
+- Planetary Climate Archetype: ${this.analysis.fingerprint.cluster.name} (${this.analysis.fingerprint.cluster.category}), Spatial Moran's I = ${this.analysis.spatial.moranI.toFixed(2)}.
 
 Instructions:
-1. Provide a sharp, scientifically sound, insightful response.
-2. If the user writes in Arabic, respond in fluent, professional Arabic. If in English, reply in English.
-3. Keep it within 3-4 sentences maximum so it fits cleanly in the chat panel.`;
+1. Ground every answer in these exact statistical figures and physical mechanisms (e.g. greenhouse forcing, thermal inertia, soil water depletion, vegetation phenology).
+2. Proactively explain Chronos-2 projections, MOMENT anomalies, and Sen slope rates when asked about trends, future outlooks, or risks.
+3. If the user writes in Arabic, reply in fluent, eloquent, professional Arabic. If in English, reply in English.
+4. Keep answers concise (3 to 5 sentences or bullet points), highly informative, and scientifically rigorous.`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+      const url = `${GEMINI_API_ENDPOINT}?key=${apiKey}`;
       const payload = {
         contents: [
           {
@@ -636,7 +647,7 @@ Instructions:
         ],
         generationConfig: {
           temperature: 0.35,
-          maxOutputTokens: 250,
+          maxOutputTokens: 350,
         },
       };
 
@@ -660,7 +671,11 @@ Instructions:
     } catch (err) {
       thinkingMsg.remove();
       // Fallback response grounded in local statistical data
-      const answer = `Analysis for <strong>${currentVar.label}</strong>: Monotonic drift rate is <strong>${currentVar.trendText}</strong> with Seasonal Mann-Kendall τ = ${currentVar.mk.tau.toFixed(3)} (p = ${currentVar.mk.pValue.toFixed(4)}). Climatology indicates persistent coupling within the ${this.analysis!.fingerprint.cluster.name} regime archetype.`;
+      const cf = currentVar.chronosForecast;
+      const ma = currentVar.momentAnomalies;
+      const answer = `Analysis for <strong>${currentVar.label}</strong>: Monotonic drift rate is <strong>${currentVar.trendText}</strong> (Mann-Kendall τ = ${currentVar.mk.tau.toFixed(3)}, p = ${currentVar.mk.pValue.toFixed(4)}).<br/>` +
+        `• <strong>Chronos-2 Outlook (+${cf.horizonMonths}M)</strong>: Projected ${cf.driftPerDecade > 0 ? "+" : ""}${cf.driftPerDecade} ${currentVar.unit}/decade within ${cf.confidenceBandCoverage}.<br/>` +
+        `• <strong>MOMENT Anomalies</strong>: ${ma.totalAnomaliesDetected} significant events exceeding ${ma.thresholdUsed}σ threshold.`;
       this.appendChatMessage("assistant", answer);
     }
   }

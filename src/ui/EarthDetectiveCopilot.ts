@@ -12,6 +12,8 @@
  * Supports interactive queries, comparative reasoning, and explanation of climate teleconnections.
  */
 
+import { getGeminiApiKey, GEMINI_API_ENDPOINT } from "../lib/geminiConfig";
+
 export interface CopilotContext {
   regionName: string;
   lat: number;
@@ -74,15 +76,91 @@ export class EarthDetectiveCopilot {
     }
   }
 
-  private handleUserMessage(query: string): void {
+  private async handleUserMessage(query: string): Promise<void> {
     const question = query.trim();
     if (!question) return;
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     this.messages.push({ sender: "user", text: question, time });
-    this.messages.push({ sender: "copilot", text: this.generateGroundedResponse(question), time });
+
+    // Show temporary thinking indicator
+    this.messages.push({
+      sender: "copilot",
+      text: "⚡ *Consulting Gemini 3.5 & NASA Earth Observation telemetry…*",
+      time,
+    });
     this.render();
+
     const body = this.container.querySelector(".copilot-messages");
     if (body) body.scrollTop = body.scrollHeight;
+
+    try {
+      const apiKey = getGeminiApiKey();
+      const ctx = this.currentContext;
+
+      const systemPrompt = `You are Erro 404, the official interactive AI Guide & Climate Detective for the NASA Earth System Trend Detective Explorer (NASA Space Apps Challenge 2026).
+Your role is to guide and empower users exploring multi-decadal NASA Earth Observations (2000–2026).
+
+Active Explorer State:
+- Current Inspected Location: ${ctx.regionName} (Latitude: ${ctx.lat.toFixed(2)}°, Longitude: ${ctx.lon.toFixed(2)}°)
+- Active Satellite Layer: ${ctx.layerLabel} (${ctx.layerId})
+- Temporal Month: ${ctx.yearMonth}
+- Preliminary Trend Drift: ${ctx.trendText || "Available via probe point"}
+
+Your Capabilities & Knowledge:
+1. Navigation & Explorer Guidance:
+   - To navigate the 3D Earth Globe: Left-click and drag to rotate, mouse scroll wheel to zoom in/out, and right-click drag to pan.
+   - To switch Earth observation layers: Use the bottom toolbar to switch between Vegetation Index (MODIS NDVI/EVI), Land Surface Temperature (LST), Air Temperature Reanalysis (NASA MERRA-2), Precipitation Rate, Soil Moisture (GLDAS), and Snow Cover.
+   - To view historical changes: Drag the multidecadal timeline slider at the bottom to view any month from 2000 to 2026.
+   - To inspect a location: Click on any terrestrial or ocean point on the 3D globe to place a probe pin. To run deep mathematical trend analysis, click the "Analyze selection" button in the probe card, which opens the full Investigation Workspace.
+2. Scientific Honesty & Data Grounding:
+   - Ground-truth benchmark regions (Nile Delta and Western Desert in Egypt, Amazon Basin in Brazil, Lake Chad in Central Africa) feature 100% verified, real monthly observation archives from NASA MERRA-2 and POWER.
+   - Global arbitrary coordinates utilize a physically grounded climatological simulation baseline.
+   - Foundation models (Chronos-2 probabilistic forecaster and MOMENT anomaly detector) run via high-precision client-side algorithmic simulations.
+3. Tone and Language:
+   - If the user writes in Arabic, respond in fluent, professional, supportive Arabic. If in English, reply in English.
+   - Keep responses helpful, clear, and concise (2-4 sentences or clear bullet points), perfectly formatted for a chat modal.`;
+
+      const url = `${GEMINI_API_ENDPOINT}?key=${apiKey}`;
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\nUser Question: ${question}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 400,
+        },
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      // Remove thinking indicator
+      this.messages.pop();
+
+      if (res.ok) {
+        const json = await res.json();
+        const geminiText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (geminiText) {
+          this.messages.push({ sender: "copilot", text: geminiText, time });
+          this.render();
+          return;
+        }
+      }
+      throw new Error(`Gemini status ${res.status}`);
+    } catch {
+      // Remove thinking message if still present
+      if (this.messages.length > 0 && this.messages[this.messages.length - 1].text.includes("Consulting Gemini")) {
+        this.messages.pop();
+      }
+      this.messages.push({ sender: "copilot", text: this.generateGroundedResponse(question), time });
+      this.render();
+    }
   }
 
   private generateGroundedResponse(query: string): string {
@@ -201,6 +279,7 @@ export class EarthDetectiveCopilot {
       .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#f8fafc;">$1</strong>')
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
       .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08); padding:1px 4px; border-radius:3px; font-size:11px;">$1</code>')
+      .replace(/^[•\-\*] (.*$)/gim, '<div style="margin-left:6px; display:flex; gap:6px;"><span>•</span><span>$1</span></div>')
       .replace(/^> (.*$)/gim, '<blockquote style="border-left:2px solid #38bdf8; padding-left:8px; margin:4px 0; color:#94a3b8; font-size:11px;">$1</blockquote>')
       .replace(/\n/g, "<br/>");
   }
